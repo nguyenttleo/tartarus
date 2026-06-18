@@ -1,0 +1,35 @@
+[package]
+name = "tartarus-server"
+description = "Tartarus gateway + worker + CLI: HTTP/WS API in front of the isolation engine, with swappable in-memory or Redis/Postgres queue and store."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "tartarus"
+path = "src/main.rs"
+
+[features]
+# Default build is fully self-contained: in-memory queue + store, zero external services.
+default = []
+# Production: Redis queue + result cache, Postgres audit/escape store.
+distributed = ["dep:redis", "dep:sqlx"]
+
+[dependencies]
+tartarus-core = { path = "../tartarus-core" }
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tokio.workspace = true
+axum.workspace = true
+tower-http.workspace = true
+clap.workspace = true
+uuid.workspace = true
+
+redis = { workspace = true, optional = true }
+sqlx = { workspace = true, optional = true }

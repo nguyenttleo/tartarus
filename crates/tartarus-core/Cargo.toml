@@ -1,0 +1,22 @@
+[package]
+name = "tartarus-core"
+description = "Tartarus isolation engine: a wasmtime/WASI sandbox that runs untrusted code under hard CPU, memory, wall-clock and output limits, with a syscall-style trace."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+wasmtime.workspace = true
+wasmtime-wasi.workspace = true
+
+[dev-dependencies]
+# Integration tests drive the sandbox directly. They require the interpreter runtimes to be
+# present (run ../../runtimes/fetch-runtimes.sh first) and are skipped gracefully otherwise.

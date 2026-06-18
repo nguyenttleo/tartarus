@@ -1,0 +1,38 @@
+# Fly.io config for the Tartarus API.
+#
+# Why Fly: every Fly Machine is itself a Firecracker microVM, so the WASM sandbox runs *inside* a
+# microVM — the spec's "Firecracker isolation" becomes literally true at the infrastructure tier,
+# for free. Scale-to-zero keeps it ~free when idle.
+#
+# Deploy:  fly launch --copy-config --no-deploy   (then set secrets, then `fly deploy`)
+# Secrets: fly secrets set DATABASE_URL=... REDIS_URL=...
+
+app = "tartarus-api"
+primary_region = "sjc"
+
+[build]
+  dockerfile = "deploy/Dockerfile"
+
+[env]
+  BIND = "0.0.0.0:8080"
+  RUNTIMES_DIR = "/app/runtimes"
+  WORKER_CONCURRENCY = "2"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0   # scale to zero when idle
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 20
+    hard_limit = 40
+
+# A single machine runs `tartarus all` (gateway + in-process worker). For higher throughput, split
+# into process groups (gateway = "serve", worker = "worker") and give the worker min 1 machine.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
+  cpus = 1

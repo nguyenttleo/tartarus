@@ -1,0 +1,13 @@
+# Tartarus interpreter runtimes
+#
+# Format:  name | url | sha256        (sha256 = AUTO means "pin on first fetch")
+#
+# These are WASI `preview1` command modules (export `_start`, read a script path from argv).
+# They are large and intentionally git-ignored — run fetch-runtimes.(sh|ps1) to download them.
+# After the first fetch, paste the printed sha256 here (replacing AUTO) to pin for reproducibility.
+#
+# Python: CPython compiled to WASI by the VMware Wasm Labs language-runtimes project.
+python.wasm | https://github.com/vmware-labs/webassembly-language-runtimes/releases/download/python%2F3.11.4%2B20230714-11be424/python-3.11.4.wasm | 422a1088378ef31788384afcdf705594d833e10c7d6336c6988e2875a269f68b
+#
+# JavaScript: QuickJS-ng compiled to WASI.
+qjs.wasm | https://github.com/quickjs-ng/quickjs/releases/latest/download/qjs-wasi.wasm | b4071ef2fbb2bb693c0bbcfc07cb9d28639fd9cea2fd986824a57aeac929817b
