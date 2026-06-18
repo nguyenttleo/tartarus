@@ -90,9 +90,19 @@ fn cpu_spin_is_stopped() {
 #[test]
 fn memory_bomb_is_capped() {
     require_lang!(Language::Python);
-    // Try to allocate ~2 GiB against a 128 MiB cap.
+    // Grow memory in 16 MiB chunks against a 128 MiB cap until the limiter refuses a grow.
+    // (A single huge bytearray would overflow wasm32's 32-bit size type and raise before allocating.)
     let limits = Limits { memory_bytes: 128 * 1024 * 1024, ..Limits::default() };
-    let r = run(Language::Python, "x = bytearray(2 * 1024 * 1024 * 1024)\nprint(len(x))", "", limits, RunMode::Normal);
+    // NB: raw string — a normal "\<newline>" literal would strip the Python indentation.
+    let src = r#"
+chunks = []
+try:
+    while True:
+        chunks.append(bytearray(16 * 1024 * 1024))
+except MemoryError:
+    print('memory error after', len(chunks) * 16, 'MB')
+"#;
+    let r = run(Language::Python, src, "", limits, RunMode::Normal);
     assert!(r.oom, "expected the memory cap to be hit, outcome {:?} stderr {}", r.outcome, r.stderr);
 }
 
@@ -109,11 +119,12 @@ fn output_flood_is_truncated() {
 fn host_filesystem_is_unreachable() {
     require_lang!(Language::Python);
     // Reading a host path must fail; the canary (which lives only on the host) must not appear.
-    let src = "\
-try:\n\
-    print(open('/etc/passwd').read())\n\
-except Exception as e:\n\
-    print('blocked:', type(e).__name__)\n";
+    let src = r#"
+try:
+    print(open('/etc/passwd').read())
+except Exception as e:
+    print('blocked:', type(e).__name__)
+"#;
     let r = run(Language::Python, src, "", Limits::default(), RunMode::Arena);
     let esc = r.escape.expect("arena run should be scored");
     assert!(!esc.succeeded, "host filesystem must stay unreachable");
