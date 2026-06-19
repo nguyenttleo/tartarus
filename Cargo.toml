@@ -39,8 +39,6 @@ axum = { version = "0.7", features = ["ws"] }
 tower-http = { version = "0.6", features = ["cors", "trace"] }
 clap = { version = "4", features = ["derive", "env"] }
 uuid = { version = "1", features = ["v4", "serde"] }
-hmac = "0.12"
-sha2 = "0.10"
 
 # Distributed mode only (feature-gated). TLS variants chosen so Upstash (rediss://) and
 # Neon (sslmode=require) work out of the box.

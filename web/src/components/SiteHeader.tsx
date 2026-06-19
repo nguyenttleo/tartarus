@@ -4,18 +4,16 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Health } from "@/lib/types";
 
-type Section = "ide" | "arena" | "labyrinth";
+type Section = "ide" | "arena";
 
 const CWD: Record<Section, string> = {
   ide: "~",
   arena: "~/arena",
-  labyrinth: "~/labyrinth",
 };
 
 const NAV: { href: string; id: Section; label: string }[] = [
   { href: "/", id: "ide", label: "ide" },
   { href: "/arena", id: "arena", label: "arena" },
-  { href: "/labyrinth", id: "labyrinth", label: "labyrinth" },
 ];
 
 export function SiteHeader({

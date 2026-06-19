@@ -167,11 +167,12 @@ export default function IdePage() {
       <main className="mx-auto grid max-w-[1400px] gap-4 px-4 py-4 lg:grid-cols-2">
         {/* Editor column */}
         <section className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-nowrap items-center gap-2 overflow-x-auto">
             <Select
               ariaLabel="Language"
               value={lang}
               onChange={(v) => setLang(v as Language)}
+              className="min-w-[12.25rem] max-w-[15.5rem] flex-1"
               options={langs.map((l) => ({
                 value: l.id,
                 label: !l.available && !!health ? `${l.label} (unavailable)` : l.label,
@@ -179,11 +180,25 @@ export default function IdePage() {
               }))}
             />
 
-            <LimitSelect label="time" value={wallMs} onChange={setWallMs} options={[1000, 3000, 5000, 10000]} suffix="ms" />
-            <LimitSelect label="mem" value={memoryMb} onChange={setMemoryMb} options={[64, 128, 256, 512]} suffix="MB" />
+            <LimitSelect
+              label="time"
+              value={wallMs}
+              onChange={setWallMs}
+              options={[1000, 3000, 5000, 10000]}
+              suffix="ms"
+              className="w-32 shrink-0"
+            />
+            <LimitSelect
+              label="mem"
+              value={memoryMb}
+              onChange={setMemoryMb}
+              options={[64, 128, 256, 512]}
+              suffix="MB"
+              className="w-28 shrink-0"
+            />
 
-            <button onClick={() => void run()} disabled={!canRun} className="btn-accent ml-auto">
-              {running ? `running… ${status}` : "Run ▸  ⌘/Ctrl+Enter"}
+            <button onClick={() => void run()} disabled={!canRun} className="btn-accent ml-auto shrink-0 px-2.5">
+              {running ? (status === "queued" ? "queued…" : "running…") : "Run ▸  ⌘/Ctrl+Enter"}
             </button>
           </div>
 
@@ -260,12 +275,14 @@ function LimitSelect({
   onChange,
   options,
   suffix,
+  className,
 }: {
   label: string;
   value: number;
   onChange: (n: number) => void;
   options: number[];
   suffix: string;
+  className?: string;
 }) {
   return (
     <Select
@@ -274,6 +291,7 @@ function LimitSelect({
       value={String(value)}
       onChange={(v) => onChange(Number(v))}
       options={options.map((o) => ({ value: String(o), label: `${o}${suffix}` }))}
+      className={className}
     />
   );
 }

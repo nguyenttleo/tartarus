@@ -6,7 +6,6 @@
 //!   tartarus run      execute one snippet locally and print the result + trace (no HTTP, no queue)
 
 mod api;
-mod labyrinth;
 mod queue;
 mod store;
 mod worker;
@@ -24,7 +23,6 @@ use tartarus_core::{
 };
 
 use api::{AppState, LangInfo};
-use labyrinth::LabyrinthState;
 use queue::{InMemoryQueue, Queue};
 use store::{InMemoryStore, Store};
 use worker::Worker;
@@ -173,7 +171,6 @@ async fn cmd_all(args: InfraArgs) -> Result<()> {
         AppState {
             queue,
             store,
-            labyrinth: LabyrinthState::from_env(),
             languages,
             max_limits: Limits::MAX,
             started: Instant::now(),
@@ -196,7 +193,6 @@ async fn cmd_serve(args: InfraArgs) -> Result<()> {
         AppState {
             queue,
             store,
-            labyrinth: LabyrinthState::from_env(),
             languages,
             max_limits: Limits::MAX,
             started: Instant::now(),

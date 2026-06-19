@@ -7,8 +7,7 @@ Tartarus exposes one tiny contract - *"run this code with these limits; return i
 trace of everything it tried to do"* - behind a pluggable isolation backend. v1 ships a real
 **WebAssembly/WASI** backend (wasmtime): untrusted code runs as WASM bytecode with **no network, no
 host filesystem, and no ambient authority**, under hard CPU, memory, wall-clock, and output limits.
-It is the isolation engine for the **Labyrinth** CTF and the **Siren** honeypot's malware
-detonation, and it ships with a public **Escape Arena** that logs (failed) breakout attempts.
+It ships with a public **Escape Arena** that logs contained breakout attempts.
 
 ```
 web (Next.js / Vercel) ──HTTP──▶ gateway (axum) ──enqueue──▶ queue ──▶ worker
@@ -37,12 +36,11 @@ web (Next.js / Vercel) ──HTTP──▶ gateway (axum) ──enqueue──▶
 | Path | What |
 | --- | --- |
 | `crates/tartarus-core` | The isolation engine: run contract, limits, `Backend` trait, wasmtime sandbox, trace. |
-| `crates/tartarus-server` | axum gateway + worker pool + queue/store (in-memory or Redis/Postgres) + CLI, plus the Labyrinth CTF API. |
-| `web/` | Next.js IDE: Monaco editor, output + trace panels, Escape Arena, and Labyrinth CTF route. |
+| `crates/tartarus-server` | axum gateway + worker pool + queue/store (in-memory or Redis/Postgres) + CLI. |
+| `web/` | Next.js IDE: Monaco editor, output + trace panels, and Escape Arena. |
 | `runtimes/` | Fetch scripts + lockfile for the WASI interpreter modules. |
 | `deploy/` | Dockerfile, Fly + docker-compose, and **[HOSTING.md](deploy/HOSTING.md)**. |
 | `migrations/` | Postgres schema (distributed mode). |
-| `docs/labyrinth-architecture.md` | Labyrinth architecture, API map, security notes, and verification flow. |
 
 ## Quickstart (zero external services)
 
@@ -60,8 +58,7 @@ cargo run -p tartarus-server -- all          # http://localhost:8080
 cd web && cp .env.example .env.local && npm install && npm run dev   # http://localhost:3000
 ```
 
-Labyrinth runs from the same gateway. Point the web app at the API and open
-`http://localhost:3000/labyrinth`:
+Point the web app at the local API:
 
 ```bash
 NEXT_PUBLIC_TARTARUS_API=http://localhost:8080 npm run dev
@@ -90,10 +87,6 @@ cargo test -p tartarus-core         # hello-world, CPU spin, memory bomb, output
 | `GET` | `/run/:id/ws` | WebSocket: status frames, then the final `done` frame |
 | `GET` | `/languages` | available languages |
 | `GET` | `/arena/leaderboard` | attempts + escapes by technique |
-| `GET` | `/labyrinth/event` | Labyrinth event metadata, challenge summary, scoreboard |
-| `POST` | `/labyrinth/teams` | create a Labyrinth team |
-| `GET` | `/labyrinth/teams/:id/board` | team-scoped Labyrinth board |
-| `POST` | `/labyrinth/teams/:id/submissions` | submit a dynamic Labyrinth flag |
 | `GET` | `/healthz` | status, backend, languages, max limits |
 
 `RunResult`: `{stdout, stderr, exitCode, durationMs, timedOut, oom, outputTruncated, outcome,

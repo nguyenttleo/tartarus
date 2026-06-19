@@ -20,7 +20,6 @@ use uuid::Uuid;
 
 use tartarus_core::{Limits, RunMode, RunRequest};
 
-use crate::labyrinth::{self, LabyrinthState};
 use crate::queue::Queue;
 use crate::store::Store;
 
@@ -39,7 +38,6 @@ pub struct LangInfo {
 pub struct AppState {
     pub queue: Queue,
     pub store: Store,
-    pub labyrinth: LabyrinthState,
     pub languages: Vec<LangInfo>,
     pub max_limits: Limits,
     pub started: Instant,
@@ -55,7 +53,6 @@ pub fn router(state: AppState) -> Router {
         .route("/run/:id", get(get_run))
         .route("/run/:id/ws", get(ws_run))
         .route("/arena/leaderboard", get(get_leaderboard))
-        .nest("/labyrinth", labyrinth::router())
         .layer(CorsLayer::permissive())
         .with_state(state)
 }
@@ -64,7 +61,7 @@ async fn root() -> impl IntoResponse {
     Json(json!({
         "service": "tartarus",
         "description": "Secure code execution sandbox. POST /run to execute untrusted code.",
-        "endpoints": ["/healthz", "/languages", "/run", "/run/:id", "/run/:id/ws", "/arena/leaderboard", "/labyrinth/event", "/labyrinth/teams", "/labyrinth/scoreboard"],
+        "endpoints": ["/healthz", "/languages", "/run", "/run/:id", "/run/:id/ws", "/arena/leaderboard"],
     }))
 }
 

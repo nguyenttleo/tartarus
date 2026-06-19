@@ -25,9 +25,9 @@ visitor │  web/  (Next.js  │  HTTPS     │  tartarus-api (Rust)            
 | Queue / result cache | **Upstash Redis** | Serverless Redis, `rediss://` TLS, free tier. |
 | Audit + escape attempts | **Neon Postgres** | Serverless Postgres, `sslmode=require`, free tier. |
 
-> This Vercel + Fly + managed-data pattern is the template the sibling projects reuse: **Labyrinth**
-> deploys the same way; **Siren**'s honeypot sensors instead want a dedicated throwaway VPS (it
-> needs to *accept* hostile inbound traffic), with Tartarus called for malware detonation.
+> This Vercel + Fly + managed-data pattern is the template for sandbox-backed portfolio demos.
+> Honeypot-style sensors still want a dedicated throwaway VPS when they need to accept hostile
+> inbound traffic directly.
 
 ---
 
