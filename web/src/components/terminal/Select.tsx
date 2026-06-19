@@ -53,12 +53,12 @@ export function Select({
       ? Math.max(...options.map((opt) => ctx.measureText(opt.label).width), 0)
       : Math.max(...options.map((opt) => opt.label.length * 8.5), 0);
     const disabledMarkerWidth = options.some((opt) => opt.disabled) ? 36 : 0;
-    const listChromeWidth = 24 + 12 + 8 + 18 + disabledMarkerWidth;
+    const listChromeWidth = 24 + 12 + 8 + 18 + disabledMarkerWidth + 48;
     const measuredListWidth = listRef.current?.scrollWidth ?? 0;
-    const maxWidth = Math.max(rect.width, window.innerWidth - gutter * 2);
+    const maxWidth = window.innerWidth - gutter * 2;
     const width = Math.min(
       maxWidth,
-      Math.ceil(Math.max(rect.width, optionTextWidth + listChromeWidth, measuredListWidth))
+      Math.ceil(Math.max(rect.width + 32, optionTextWidth + listChromeWidth, measuredListWidth))
     );
     let left = align === "right" ? rect.right - width : rect.left;
     left = Math.min(Math.max(gutter, left), Math.max(gutter, window.innerWidth - width - gutter));
@@ -224,7 +224,7 @@ export function Select({
           aria-label={ariaLabel}
           tabIndex={-1}
           style={menuStyle}
-          className="pop-in fixed z-[120] overflow-auto rounded-md border border-accent/45 bg-[#070b0e] py-1 font-mono text-sm shadow-[0_0_0_1px_rgba(0,0,0,0.7),0_18px_44px_-16px_rgba(70,247,164,0.4)]"
+          className="pop-in fixed z-[120] overflow-x-hidden overflow-y-auto rounded-md border border-accent/45 bg-[#070b0e] py-1 font-mono text-sm shadow-[0_0_0_1px_rgba(0,0,0,0.7),0_18px_44px_-16px_rgba(70,247,164,0.4)]"
         >
           {options.map((opt, idx) => {
             const isSelected = opt.value === value;
