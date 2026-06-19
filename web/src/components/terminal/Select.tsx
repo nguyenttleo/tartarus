@@ -47,7 +47,19 @@ export function Select({
 
     const rect = root.getBoundingClientRect();
     const gutter = 8;
-    const width = rect.width;
+    const ctx = document.createElement("canvas").getContext("2d");
+    if (ctx) ctx.font = getComputedStyle(root).font;
+    const optionTextWidth = ctx
+      ? Math.max(...options.map((opt) => ctx.measureText(opt.label).width), 0)
+      : Math.max(...options.map((opt) => opt.label.length * 8.5), 0);
+    const disabledMarkerWidth = options.some((opt) => opt.disabled) ? 36 : 0;
+    const listChromeWidth = 24 + 12 + 8 + 18 + disabledMarkerWidth;
+    const measuredListWidth = listRef.current?.scrollWidth ?? 0;
+    const maxWidth = Math.max(rect.width, window.innerWidth - gutter * 2);
+    const width = Math.min(
+      maxWidth,
+      Math.ceil(Math.max(rect.width, optionTextWidth + listChromeWidth, measuredListWidth))
+    );
     let left = align === "right" ? rect.right - width : rect.left;
     left = Math.min(Math.max(gutter, left), Math.max(gutter, window.innerWidth - width - gutter));
 
@@ -64,7 +76,7 @@ export function Select({
       width,
       maxHeight,
     });
-  }, [align]);
+  }, [align, options]);
 
   const openMenu = () => {
     setActive(selectedIndex);
@@ -241,7 +253,7 @@ export function Select({
                 <span className="w-3 shrink-0 text-accent">
                   {isSelected ? "▸" : isActive ? "›" : ""}
                 </span>
-                <span className="flex-1 truncate">{opt.label}</span>
+                <span className="flex-1">{opt.label}</span>
                 {opt.disabled && <span className="ml-2 text-[11px] text-faint">n/a</span>}
               </li>
             );
