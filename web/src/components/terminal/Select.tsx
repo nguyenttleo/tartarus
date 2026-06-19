@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 
 export type SelectOption = {
   value: string;
@@ -9,9 +10,7 @@ export type SelectOption = {
 };
 
 // A fully custom, keyboard-navigable dropdown styled as a terminal pick-list.
-// Replaces native <select> so the open menu is themable (the OS draws native
-// option lists and ignores our colors). The menu sits at z-70: above the CRT
-// (60) and the `.screen` surfaces (61), below the header (80).
+// The menu is portaled to the document body so parent overflow never clips it.
 export function Select({
   value,
   options,
@@ -31,6 +30,7 @@ export function Select({
 }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
+  const [menuStyle, setMenuStyle] = useState<CSSProperties | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const baseId = useId();
@@ -41,8 +41,34 @@ export function Select({
   );
   const selected = options[selectedIndex];
 
+  const updateMenuPosition = useCallback(() => {
+    const root = rootRef.current;
+    if (!root || typeof window === "undefined") return;
+
+    const rect = root.getBoundingClientRect();
+    const gutter = 8;
+    const width = rect.width;
+    let left = align === "right" ? rect.right - width : rect.left;
+    left = Math.min(Math.max(gutter, left), Math.max(gutter, window.innerWidth - width - gutter));
+
+    const belowTop = rect.bottom + 4;
+    const belowSpace = window.innerHeight - belowTop - gutter;
+    const aboveSpace = rect.top - gutter;
+    const openAbove = belowSpace < 160 && aboveSpace > belowSpace;
+    const maxHeight = Math.max(96, Math.min(256, openAbove ? aboveSpace : belowSpace));
+    const top = openAbove ? Math.max(gutter, rect.top - maxHeight - 4) : belowTop;
+
+    setMenuStyle({
+      left,
+      top,
+      width,
+      maxHeight,
+    });
+  }, [align]);
+
   const openMenu = () => {
     setActive(selectedIndex);
+    updateMenuPosition();
     setOpen(true);
   };
 
@@ -50,11 +76,25 @@ export function Select({
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (rootRef.current?.contains(target) || listRef.current?.contains(target)) return;
+      setOpen(false);
     };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
+
+  // Keep the portaled menu pinned to its button while the page scrolls or resizes.
+  useEffect(() => {
+    if (!open) return;
+    updateMenuPosition();
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+    return () => {
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+    };
+  }, [open, updateMenuPosition]);
 
   // Keep the active option scrolled into view.
   useEffect(() => {
@@ -161,16 +201,18 @@ export function Select({
         </span>
       </button>
 
-      {open && (
+      {open &&
+        menuStyle &&
+        typeof document !== "undefined" &&
+        createPortal(
         <ul
           ref={listRef}
           id={`${baseId}-list`}
           role="listbox"
           aria-label={ariaLabel}
           tabIndex={-1}
-          className={`pop-in absolute z-[70] mt-1 max-h-64 min-w-full overflow-auto rounded-md border border-accent/45 bg-[#070b0e] py-1 font-mono text-sm shadow-[0_0_0_1px_rgba(0,0,0,0.7),0_18px_44px_-16px_rgba(70,247,164,0.4)] ${
-            align === "right" ? "right-0" : "left-0"
-          }`}
+          style={menuStyle}
+          className="pop-in fixed z-[120] overflow-auto rounded-md border border-accent/45 bg-[#070b0e] py-1 font-mono text-sm shadow-[0_0_0_1px_rgba(0,0,0,0.7),0_18px_44px_-16px_rgba(70,247,164,0.4)]"
         >
           {options.map((opt, idx) => {
             const isSelected = opt.value === value;
@@ -204,7 +246,8 @@ export function Select({
               </li>
             );
           })}
-        </ul>
+        </ul>,
+        document.body
       )}
     </div>
   );

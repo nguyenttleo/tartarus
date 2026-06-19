@@ -168,12 +168,12 @@ export default function IdePage() {
       <main className="mx-auto grid max-w-[1400px] gap-4 px-4 py-4 lg:grid-cols-2">
         {/* Editor column */}
         <section className="flex flex-col gap-3">
-          <div className="flex flex-nowrap items-center gap-2 overflow-x-auto">
+          <div className="relative z-[70] flex flex-nowrap items-center gap-2 overflow-visible">
             <Select
               ariaLabel="Language"
               value={lang}
               onChange={(v) => setLang(v as Language)}
-              className="min-w-[12.25rem] max-w-[15.5rem] flex-1"
+              className="min-w-0 max-w-[15.5rem] flex-1 basis-[12.25rem]"
               options={langs.map((l) => ({
                 value: l.id,
                 label: !l.available && !!health ? `${l.label} (unavailable)` : l.label,
@@ -199,7 +199,18 @@ export default function IdePage() {
             />
 
             <button onClick={() => void run()} disabled={!canRun} className="btn-accent ml-auto shrink-0 px-2.5">
-              {running ? (status === "queued" ? "queued…" : "running…") : "Run ▸  ⌘/Ctrl+Enter"}
+              {running ? (
+                status === "queued" ? (
+                  "queued…"
+                ) : (
+                  "running…"
+                )
+              ) : (
+                <>
+                  <span>Run ▸</span>
+                  <span className="hidden 2xl:inline">⌘/Ctrl+Enter</span>
+                </>
+              )}
             </button>
           </div>
 
