@@ -17,9 +17,9 @@ const LINES: { t: string; ok: boolean }[] = [
 ];
 
 export function BootSequence() {
-  const [show, setShow] = useState(false);
+  const [show, setShow] = useState(true);
   const [fading, setFading] = useState(false);
-  const [n, setN] = useState(0);
+  const [n, setN] = useState(1);
 
   useEffect(() => {
     let seen = true;
@@ -27,14 +27,16 @@ export function BootSequence() {
       seen = !!sessionStorage.getItem("tartarus-booted");
     } catch {}
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (seen || reduce) return;
+    if (seen || reduce) {
+      const hideSeenTimer = window.setTimeout(() => setShow(false), 0);
+      return () => window.clearTimeout(hideSeenTimer);
+    }
     try {
       sessionStorage.setItem("tartarus-booted", "1");
     } catch {}
-    const showTimer = window.setTimeout(() => setShow(true), 0);
     let fadeTimer: number | undefined;
     let hideTimer: number | undefined;
-    let i = 0;
+    let i = 1;
     const id = setInterval(() => {
       i += 1;
       setN(i);
@@ -45,7 +47,6 @@ export function BootSequence() {
       }
     }, 150);
     return () => {
-      window.clearTimeout(showTimer);
       if (fadeTimer) window.clearTimeout(fadeTimer);
       if (hideTimer) window.clearTimeout(hideTimer);
       clearInterval(id);

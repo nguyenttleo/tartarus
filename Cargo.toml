@@ -14,7 +14,7 @@ members = ["crates/tartarus-core", "crates/tartarus-server"]
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.78"
+rust-version = "1.85"
 license = "MIT"
 authors = ["Leonardo Nguyen"]
 repository = "https://github.com/nguyenttleo/tartarus"

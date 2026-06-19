@@ -22,7 +22,7 @@ export function SiteHeader({
   configured,
 }: {
   active: Section;
-  health: Health | null;
+  health: Health | null | undefined;
   configured: boolean;
 }) {
   const [clock, setClock] = useState("--:--:--");
@@ -74,18 +74,21 @@ export function SiteHeader({
   );
 }
 
-function StatusPill({ health, configured }: { health: Health | null; configured: boolean }) {
+function StatusPill({ health, configured }: { health: Health | null | undefined; configured: boolean }) {
+  if (health === undefined) return <Tag tone="neutral">checking</Tag>;
   if (!configured) return <Tag tone="amber">no backend</Tag>;
   if (!health) return <Tag tone="red">offline</Tag>;
   return <Tag tone="green">online · {health.backend}</Tag>;
 }
 
-function Tag({ tone, children }: { tone: "green" | "amber" | "red"; children: React.ReactNode }) {
+function Tag({ tone, children }: { tone: "green" | "amber" | "red" | "neutral"; children: React.ReactNode }) {
   const cls =
     tone === "green"
       ? "text-accent border-accent/40 bg-accent/5"
       : tone === "amber"
         ? "text-amber border-amber/40 bg-amber/5"
-        : "text-red border-red/40 bg-red/5";
+        : tone === "red"
+          ? "text-red border-red/40 bg-red/5"
+          : "text-muted border-border-strong bg-surface-2/50";
   return <span className={`chip chip-dot ${cls}`}>{children}</span>;
 }

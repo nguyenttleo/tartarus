@@ -37,7 +37,7 @@ const GUARANTEES = [
 
 export default function IdePage() {
   const configured = apiConfigured();
-  const [health, setHealth] = useState<Health | null>(null);
+  const [health, setHealth] = useState<Health | null | undefined>(undefined);
   const [lang, setLang] = useState<Language>("python");
   const [sources, setSources] = useState<Record<Language, string>>(STARTERS);
   const [stdin, setStdin] = useState("");
@@ -66,6 +66,7 @@ export default function IdePage() {
     };
   }, []);
 
+  const healthReady = health !== undefined;
   const langs = health?.languages ?? FALLBACK_LANGS.map((l) => ({ ...l, available: false }));
   const langAvailable = health?.languages.find((l) => l.id === lang)?.available ?? false;
   const canRun = configured && !!health && langAvailable && !running;
@@ -111,7 +112,7 @@ export default function IdePage() {
     <div className="min-h-screen dotgrid">
       <SiteHeader active="ide" health={health} configured={configured} />
 
-      {(!configured || !health) && (
+      {healthReady && (!configured || !health) && (
         <div className="mx-auto max-w-[1400px] px-4 pt-3">
           <div className="flex items-start gap-2.5 rounded-lg border border-amber/40 bg-amber/5 px-4 py-2.5 text-sm text-amber">
             <span aria-hidden className="mt-0.5 text-amber/80">▲</span>

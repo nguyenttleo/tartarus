@@ -1,0 +1,38 @@
+# flyctl launch added from .gitignore
+# Rust
+target
+**/**/*.rs.bk
+
+# Node / Next (web has its own .gitignore too)
+**/node_modules
+**/.next
+**/out
+**/*.tsbuildinfo
+
+# Env / secrets
+**/.env
+**/.env.*
+!**/.env.example
+
+# Editor / OS
+**/.DS_Store
+**/.idea
+**/.vscode
+**/*.swp
+
+# Fly
+**/fly.toml.bak
+
+# flyctl launch added from runtimes/.gitignore
+# Interpreter runtimes are large binaries; fetch them, don't commit them.
+runtimes/**/*.wasm
+
+# flyctl launch added from web/.gitignore
+web/node_modules
+web/.next
+web/out
+web/build
+web/**/next-env.d.ts
+web/**/.env*.local
+web/**/.vercel
+web/**/*.tsbuildinfo

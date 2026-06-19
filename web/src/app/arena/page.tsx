@@ -28,7 +28,7 @@ const ARENA_FACTS = [
 
 export default function ArenaPage() {
   const configured = apiConfigured();
-  const [health, setHealth] = useState<Health | null>(null);
+  const [health, setHealth] = useState<Health | null | undefined>(undefined);
   const [board, setBoard] = useState<LeaderboardSummary | null>(null);
   const [lang, setLang] = useState<Language>("python");
   const [sources, setSources] = useState<Record<Language, string>>(ARENA_STARTERS);
