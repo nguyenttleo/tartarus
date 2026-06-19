@@ -13,7 +13,7 @@ const nextConfig = {
       {
         source: "/(.*)",
         headers: [
-          // NB: deliberately NOT X-Frame-Options: DENY — that would block the portfolio preview.
+          // NB: deliberately NOT X-Frame-Options: DENY - that would block the portfolio preview.
           { key: "Content-Security-Policy", value: `frame-ancestors ${frameAncestors};` },
         ],
       },

@@ -143,7 +143,7 @@ pub enum Outcome {
 }
 
 /// One entry in the syscall-style trace. These are emitted by the host as it provisions, runs and
-/// tears down the sandbox — authentic, host-observed events, not a reconstruction.
+/// tears down the sandbox - authentic, host-observed events, not a reconstruction.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TraceEvent {
@@ -165,7 +165,7 @@ pub struct TraceEvent {
 #[serde(rename_all = "camelCase")]
 pub struct EscapeOutcome {
     pub technique: String,
-    /// True only if the host canary leaked into guest output — a real escape. Should always be false.
+    /// True only if the host canary leaked into guest output - a real escape. Should always be false.
     pub succeeded: bool,
     pub notes: String,
 }

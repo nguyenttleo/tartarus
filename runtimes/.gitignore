@@ -1,2 +1,2 @@
-# Interpreter runtimes are large binaries — fetch them, don't commit them.
+# Interpreter runtimes are large binaries; fetch them, don't commit them.
 *.wasm

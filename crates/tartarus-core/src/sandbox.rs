@@ -1,4 +1,4 @@
-//! The WASM/WASI isolation backend — the part that actually runs hostile code safely.
+//! The WASM/WASI isolation backend - the part that actually runs hostile code safely.
 //!
 //! Defense in depth, all enforced here:
 //!   * **No network**: WASI preview1 grants no socket-opening capability at all.
@@ -279,7 +279,7 @@ impl WasmBackend {
                 technique,
                 succeeded,
                 notes: if succeeded {
-                    "Host canary observed in guest output — isolation breach".to_string()
+                    "Host canary observed in guest output - isolation breach".to_string()
                 } else {
                     "No host canary in output; attempt contained".to_string()
                 },

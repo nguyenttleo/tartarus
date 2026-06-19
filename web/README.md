@@ -1,4 +1,4 @@
-# Tartarus — Web IDE
+# Tartarus - Web IDE
 
 The Next.js front end for Tartarus: a Monaco-based code IDE, an output + syscall-trace console, and
 the Escape Arena. It talks to the Rust gateway over HTTP; it runs no code itself.

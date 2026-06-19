@@ -38,7 +38,7 @@ impl Tracer {
         self.push(kind, detail.into(), false);
     }
 
-    /// Record an action the sandbox refused — the ones that matter for the security story.
+    /// Record an action the sandbox refused - the ones that matter for the security story.
     pub fn denied(&self, kind: &str, detail: impl Into<String>) {
         self.push(kind, detail.into(), true);
     }

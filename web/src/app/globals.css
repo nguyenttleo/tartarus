@@ -1,35 +1,81 @@
 @import "tailwindcss";
 
 /* ------------------------------------------------------------------ */
-/*  Tartarus — LeoOS terminal design tokens (shared with the portfolio) */
+/*  TARTARUS - LeoOS terminal design tokens                            */
+/*  A hacking-sandbox console: phosphor CRT, scanlines, ASCII field.   */
+/*  The CRT lives ON TOP of the chrome - but every code editor / output*/
+/*  surface is a `.screen`, lifted above the CRT so text stays sharp   */
+/*  and unfiltered. (Same carve-out the portfolio uses for previews.)  */
 /* ------------------------------------------------------------------ */
 @theme {
   --font-mono: var(--font-jet), ui-monospace, "SFMono-Regular", Menlo, monospace;
   --font-sans: var(--font-jet), ui-monospace, monospace;
+  --font-display: var(--font-vt), var(--font-jet), monospace; /* VT323 - CRT display */
+  --font-terminal: var(--font-share), var(--font-jet), monospace; /* Share Tech Mono */
 
   --color-background: #07090c;
   --color-surface: #0b0f13;
   --color-surface-2: #0f141a;
-  --color-foreground: #ccd6d0;
-  --color-muted: #5f6f67;
+  --color-surface-3: #141b22;
+  --color-foreground: #d6e0da;
+  --color-muted: #8aa094;
+  --color-faint: #61736a;
   --color-border: rgba(120, 150, 135, 0.16);
+  --color-border-strong: rgba(120, 150, 135, 0.32);
 
-  --color-accent: #46f7a4; /* phosphor green — the signature */
+  --color-accent: #46f7a4; /* phosphor green - the signature */
   --color-accent-soft: #1f7d57;
   --color-amber: #ffcf6b;
   --color-red: #ff6b6b;
+  --color-cyan: #5fe9ff; /* glitch / cool channel */
+  --color-magenta: #ff5cf0; /* glitch / hot channel */
 
   --animate-blink: blink 1.05s steps(1) infinite;
+  --animate-flicker: flicker 6s linear infinite;
+  --animate-marquee: marquee 32s linear infinite;
   --animate-scan: scan 7s linear infinite;
+  --animate-pulse-dot: pulse-dot 2.2s ease-in-out infinite;
 }
 
 @keyframes blink {
   0%, 49% { opacity: 1; }
   50%, 100% { opacity: 0; }
 }
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  2% { opacity: 0.84; }
+  4% { opacity: 1; }
+  8% { opacity: 0.92; }
+  9% { opacity: 1; }
+  70% { opacity: 1; }
+  72% { opacity: 0.9; }
+  74% { opacity: 1; }
+}
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
 @keyframes scan {
   from { transform: translateY(-100%); }
   to { transform: translateY(100%); }
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 currentColor; }
+  50% { opacity: 0.5; box-shadow: 0 0 0 3px transparent; }
+}
+@keyframes glitch-a {
+  0%, 100% { transform: translate(0, 0); clip-path: inset(0 0 62% 0); }
+  20% { transform: translate(-2px, -1px); clip-path: inset(10% 0 50% 0); }
+  40% { transform: translate(2px, 1px); clip-path: inset(40% 0 20% 0); }
+  60% { transform: translate(-1px, 1px); clip-path: inset(0 0 70% 0); }
+  80% { transform: translate(2px, -1px); clip-path: inset(55% 0 5% 0); }
+}
+@keyframes glitch-b {
+  0%, 100% { transform: translate(0, 0); clip-path: inset(58% 0 0 0); }
+  20% { transform: translate(2px, 1px); clip-path: inset(48% 0 12% 0); }
+  40% { transform: translate(-2px, -1px); clip-path: inset(20% 0 38% 0); }
+  60% { transform: translate(1px, -1px); clip-path: inset(70% 0 0 0); }
+  80% { transform: translate(-2px, 1px); clip-path: inset(5% 0 52% 0); }
 }
 
 @layer base {
@@ -41,6 +87,7 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-mono);
+    font-feature-settings: "ss01", "cv02";
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
   }
@@ -48,7 +95,22 @@
     background: color-mix(in oklab, var(--color-accent) 80%, transparent);
     color: #04130c;
   }
-  ::-webkit-scrollbar { width: 9px; height: 9px; }
+
+  /* Native <select> popups: the OS list renders dark-on-dark by default, so
+     force a solid, legible dark menu with light option text. */
+  select { color-scheme: dark; }
+  option,
+  optgroup {
+    background-color: #0f141a;
+    color: #d6e0da;
+  }
+  option:disabled { color: #61736a; }
+  option:checked {
+    background-color: #16402e;
+    color: #eafff4;
+  }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: var(--color-background); }
   ::-webkit-scrollbar-thumb {
     background: color-mix(in oklab, var(--color-accent) 30%, #11201a);
@@ -57,44 +119,196 @@
   ::-webkit-scrollbar-thumb:hover { background: color-mix(in oklab, var(--color-accent) 55%, #11201a); }
 }
 
+/* ================================================================== */
+/*  Components                                                         */
+/* ================================================================== */
 @layer components {
-  .glow {
-    text-shadow:
-      0 0 6px color-mix(in oklab, var(--color-accent) 55%, transparent),
-      0 0 18px color-mix(in oklab, var(--color-accent) 22%, transparent);
-  }
+  .glow { text-shadow: 0 0 6px color-mix(in oklab, var(--color-accent) 55%, transparent), 0 0 18px color-mix(in oklab, var(--color-accent) 22%, transparent); }
+  .glow-strong { text-shadow: 0 0 8px color-mix(in oklab, var(--color-accent) 70%, transparent), 0 0 26px color-mix(in oklab, var(--color-accent) 38%, transparent); }
+  .prompt { color: var(--color-accent); }
+  .font-display { font-family: var(--font-display); }
+  .font-terminal { font-family: var(--font-terminal); }
+
+  /* Translucent app chrome - the ASCII field shimmers behind it and the
+     CRT scanlines fall in front, so panels read as glass on a CRT.
+     NOTE: deliberately no backdrop-filter/transform - those would create a
+     stacking context that traps `.screen` below the CRT overlay. */
   .panel {
-    background: color-mix(in oklab, var(--color-surface) 78%, transparent);
+    background: color-mix(in oklab, var(--color-surface) 72%, transparent);
     border: 1px solid var(--color-border);
     border-radius: 8px;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25), 0 18px 44px -30px rgba(0, 0, 0, 0.9);
   }
+  .panel-soft {
+    background: color-mix(in oklab, var(--color-surface) 60%, transparent);
+    border: 1px solid var(--color-border);
+    border-radius: 7px;
+  }
+
   .titlebar {
     background: color-mix(in oklab, var(--color-accent) 7%, var(--color-surface-2));
     border-bottom: 1px solid var(--color-border);
   }
-  .prompt { color: var(--color-accent); }
+
+  /* The unfiltered surface. Opaque + lifted above the CRT (z-60) so code,
+     stdout/stderr, traces and flags are crisp - never scan-lined. */
+  .screen {
+    position: relative;
+    z-index: 61;
+    background: #060809;
+    border: 1px solid color-mix(in oklab, var(--color-border) 80%, transparent);
+    border-radius: 6px;
+  }
+
   .dotgrid {
-    background-image: radial-gradient(
-      color-mix(in oklab, var(--color-accent) 18%, transparent) 1px,
-      transparent 1px
-    );
+    position: relative;
+    background-image: radial-gradient(color-mix(in oklab, var(--color-accent) 14%, transparent) 1px, transparent 1px);
     background-size: 26px 26px;
   }
+
+  /* mac-style window lights */
+  .win-dots { display: inline-flex; align-items: center; gap: 0.4rem; }
+  .win-dots > i { width: 0.7rem; height: 0.7rem; border-radius: 9999px; display: block; }
+  .win-dots > i:nth-child(1) { background: #ff5f56; }
+  .win-dots > i:nth-child(2) { background: #ffbd2e; }
+  .win-dots > i:nth-child(3) { background: #27c93f; }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 0.2rem 0.55rem;
+    font-family: var(--font-terminal);
+    font-size: 0.78rem;
+    line-height: 1;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .chip-dot::before {
+    content: "";
+    width: 0.46rem;
+    height: 0.46rem;
+    border-radius: 9999px;
+    background: currentColor;
+    box-shadow: 0 0 8px currentColor;
+    animation: var(--animate-pulse-dot);
+  }
+
+  /* Buttons - square, phosphor, terminal */
+  .btn-accent, .btn-danger, .btn-outline, .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    font-family: var(--font-terminal);
+    font-size: 0.9rem;
+    letter-spacing: 0.04em;
+    border: 1px solid transparent;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: transform 0.1s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease, color 0.18s ease, opacity 0.18s ease;
+  }
+  .btn-accent:active, .btn-danger:active, .btn-outline:active, .btn-ghost:active { transform: translateY(1px); }
+  .btn-accent:disabled, .btn-danger:disabled, .btn-outline:disabled, .btn-ghost:disabled { cursor: not-allowed; opacity: 0.4; box-shadow: none; transform: none; }
+
+  .btn-accent {
+    background: var(--color-accent);
+    color: #04130c;
+    font-weight: 700;
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-accent) 60%, transparent), 0 0 22px -6px var(--color-accent);
+  }
+  .btn-accent:hover:not(:disabled) { box-shadow: 0 0 0 1px var(--color-accent), 0 0 28px -4px var(--color-accent); }
+
+  .btn-danger {
+    background: var(--color-red);
+    color: #1a0606;
+    font-weight: 700;
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-red) 55%, transparent), 0 0 22px -6px var(--color-red);
+  }
+  .btn-danger:hover:not(:disabled) { box-shadow: 0 0 0 1px var(--color-red), 0 0 28px -4px var(--color-red); }
+
+  .btn-outline {
+    background: color-mix(in oklab, var(--color-accent) 6%, transparent);
+    color: var(--color-accent);
+    border-color: color-mix(in oklab, var(--color-accent) 40%, transparent);
+  }
+  .btn-outline:hover:not(:disabled) { background: color-mix(in oklab, var(--color-accent) 13%, transparent); border-color: var(--color-accent); box-shadow: 0 0 18px -8px var(--color-accent); }
+
+  .btn-ghost { background: transparent; color: var(--color-muted); padding: 0.42rem 0.6rem; }
+  .btn-ghost:hover:not(:disabled) { color: var(--color-accent); }
+
+  /* Inputs */
+  .field {
+    background: color-mix(in oklab, var(--color-surface) 70%, #000);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    color: var(--color-foreground);
+    transition: border-color 0.16s ease, box-shadow 0.16s ease;
+  }
+  .field:hover { border-color: var(--color-border-strong); }
+  .field:focus, .field:focus-within, .field:focus-visible {
+    outline: none;
+    border-color: color-mix(in oklab, var(--color-accent) 55%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-accent) 14%, transparent);
+  }
+
+  .progress { height: 6px; border-radius: 9999px; background: color-mix(in oklab, var(--color-accent) 10%, var(--color-surface-3)); overflow: hidden; }
+  .progress > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--color-accent-soft), var(--color-accent)); box-shadow: 0 0 12px color-mix(in oklab, var(--color-accent) 60%, transparent); transition: width 0.5s ease; }
+
+  .link-accent { color: var(--color-accent); text-underline-offset: 3px; }
+  .link-accent:hover { text-decoration: underline; text-shadow: 0 0 14px color-mix(in oklab, var(--color-accent) 45%, transparent); }
+
+  /* Marquee ticker */
+  .marquee { overflow: hidden; white-space: nowrap; }
+  .marquee__track { display: inline-block; will-change: transform; animation: var(--animate-marquee); }
+  .marquee:hover .marquee__track { animation-play-state: paused; }
+
+  /* Glitch title - duplicate the text into two offset colour channels */
+  .glitch { position: relative; display: inline-block; }
+  .glitch::before, .glitch::after {
+    content: attr(data-text);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    pointer-events: none;
+    opacity: 0.85;
+  }
+  .glitch::before { color: var(--color-cyan); animation: glitch-a 2.8s infinite steps(2, end); }
+  .glitch::after { color: var(--color-magenta); animation: glitch-b 3.4s infinite steps(2, end); }
+
+  /* Optional scoped scanline texture for hero panels */
+  .scanlines::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(0deg, transparent 0, transparent 2px, rgba(0, 0, 0, 0.14) 3px, transparent 4px);
+  }
+
+  /* Custom dropdown (terminal Select) menu entrance */
+  .pop-in { animation: pop-in 0.13s ease-out; transform-origin: top; }
 }
 
-/* CRT scanlines + vignette overlay */
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(-4px) scaleY(0.96); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ------------------------------------------------------------------ */
+/*  CRT scanlines + vignette overlay (z-60) and a drifting scan beam.  */
+/*  `.screen` sits at z-61 so the editor/output punch through these.   */
+/* ------------------------------------------------------------------ */
 .crt { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
 .crt::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    rgba(0, 0, 0, 0) 0px,
-    rgba(0, 0, 0, 0) 2px,
-    rgba(0, 0, 0, 0.16) 3px,
-    rgba(0, 0, 0, 0) 4px
-  );
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0) 0px, rgba(0, 0, 0, 0) 2px, rgba(0, 0, 0, 0.16) 3px, rgba(0, 0, 0, 0) 4px);
 }
 .crt::after {
   content: "";
@@ -107,14 +321,9 @@
   inset-inline: 0;
   top: 0;
   height: 28vh;
-  z-index: 59;
+  z-index: 58;
   pointer-events: none;
-  background: linear-gradient(
-    to bottom,
-    transparent,
-    color-mix(in oklab, var(--color-accent) 5%, transparent),
-    transparent
-  );
+  background: linear-gradient(to bottom, transparent, color-mix(in oklab, var(--color-accent) 6%, transparent), transparent);
   animation: var(--animate-scan);
 }
 
@@ -125,4 +334,5 @@
     transition-duration: 0.001ms !important;
   }
   .scanbeam { display: none; }
+  .glitch::before, .glitch::after { display: none; }
 }

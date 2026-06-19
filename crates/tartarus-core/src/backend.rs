@@ -1,5 +1,5 @@
-//! The isolation backend abstraction. The whole point of Tartarus is that the *contract* —
-//! "run this job under these limits, give me output + a trace" — is identical no matter how the
+//! The isolation backend abstraction. The whole point of Tartarus is that the *contract* -
+//! "run this job under these limits, give me output + a trace" - is identical no matter how the
 //! isolation is actually achieved. v1 ships `WasmBackend`; gVisor and Firecracker plug in behind
 //! the same trait on a Linux/KVM host.
 
@@ -12,11 +12,11 @@ pub trait Backend: Send + Sync {
     fn name(&self) -> &'static str;
 
     /// Execute one job in a throwaway sandbox and return the result. Implementations MUST NOT panic
-    /// on hostile input — a guest trap, timeout or OOM is a normal, reportable outcome.
+    /// on hostile input - a guest trap, timeout or OOM is a normal, reportable outcome.
     fn run(&self, job: &RunJob) -> RunResult;
 }
 
-/// gVisor (`runsc`) backend — a userspace kernel that intercepts guest syscalls. Strong isolation
+/// gVisor (`runsc`) backend - a userspace kernel that intercepts guest syscalls. Strong isolation
 /// for arbitrary native binaries / any language, without a full VM.
 ///
 /// Not built in v1: `runsc` requires a Linux host and is not installable in this dev/CI
@@ -42,7 +42,7 @@ impl Backend for GvisorBackend {
     }
 }
 
-/// Firecracker microVM backend — KVM microVMs (~125 ms boot), the strongest isolation tier.
+/// Firecracker microVM backend - KVM microVMs (~125 ms boot), the strongest isolation tier.
 ///
 /// Not built in v1: Firecracker needs bare-metal / nested-KVM, which this environment and most
 /// PaaS tiers don't provide. Notably, when Tartarus is deployed on Fly.io the *whole service*

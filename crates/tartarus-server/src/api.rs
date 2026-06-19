@@ -1,4 +1,4 @@
-//! The stateless gateway: validate, enqueue, and stream results. No code runs here — the gateway
+//! The stateless gateway: validate, enqueue, and stream results. No code runs here - the gateway
 //! never touches a sandbox; it only brokers jobs to the worker pool via the queue/store.
 
 use std::time::{Duration, Instant};
@@ -20,6 +20,7 @@ use uuid::Uuid;
 
 use tartarus_core::{Limits, RunMode, RunRequest};
 
+use crate::labyrinth::{self, LabyrinthState};
 use crate::queue::Queue;
 use crate::store::Store;
 
@@ -38,6 +39,7 @@ pub struct LangInfo {
 pub struct AppState {
     pub queue: Queue,
     pub store: Store,
+    pub labyrinth: LabyrinthState,
     pub languages: Vec<LangInfo>,
     pub max_limits: Limits,
     pub started: Instant,
@@ -53,6 +55,7 @@ pub fn router(state: AppState) -> Router {
         .route("/run/:id", get(get_run))
         .route("/run/:id/ws", get(ws_run))
         .route("/arena/leaderboard", get(get_leaderboard))
+        .nest("/labyrinth", labyrinth::router())
         .layer(CorsLayer::permissive())
         .with_state(state)
 }
@@ -61,7 +64,7 @@ async fn root() -> impl IntoResponse {
     Json(json!({
         "service": "tartarus",
         "description": "Secure code execution sandbox. POST /run to execute untrusted code.",
-        "endpoints": ["/healthz", "/languages", "/run", "/run/:id", "/run/:id/ws", "/arena/leaderboard"],
+        "endpoints": ["/healthz", "/languages", "/run", "/run/:id", "/run/:id/ws", "/arena/leaderboard", "/labyrinth/event", "/labyrinth/teams", "/labyrinth/scoreboard"],
     }))
 }
 
@@ -113,7 +116,11 @@ async fn post_run(State(st): State<AppState>, Json(req): Json<RunRequest>) -> im
             .into_response();
     }
 
-    (StatusCode::ACCEPTED, Json(json!({ "id": id, "status": "queued" }))).into_response()
+    (
+        StatusCode::ACCEPTED,
+        Json(json!({ "id": id, "status": "queued" })),
+    )
+        .into_response()
 }
 
 async fn get_run(State(st): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {
@@ -139,7 +146,7 @@ async fn ws_run(
 /// Poll the store and push status frames until the result lands (or we give up). Trace + output
 /// arrive together in the final `done` frame.
 async fn ws_loop(mut socket: WebSocket, st: AppState, id: String) {
-    // ~36s ceiling at 150ms cadence — comfortably above the 10s max wall-clock.
+    // ~36s ceiling at 150ms cadence - comfortably above the 10s max wall-clock.
     for _ in 0..240u32 {
         match st.store.get_result(&id).await {
             Ok(Some(result)) => {
@@ -159,13 +166,17 @@ async fn ws_loop(mut socket: WebSocket, st: AppState, id: String) {
                 }
             }
             Err(_) => {
-                let _ = socket.send(Message::Text(json!({ "status": "error" }).to_string())).await;
+                let _ = socket
+                    .send(Message::Text(json!({ "status": "error" }).to_string()))
+                    .await;
                 return;
             }
         }
         tokio::time::sleep(Duration::from_millis(150)).await;
     }
-    let _ = socket.send(Message::Text(json!({ "status": "timeout" }).to_string())).await;
+    let _ = socket
+        .send(Message::Text(json!({ "status": "timeout" }).to_string()))
+        .await;
 }
 
 async fn get_leaderboard(State(st): State<AppState>) -> impl IntoResponse {

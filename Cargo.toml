@@ -1,11 +1,11 @@
-# Tartarus — Cargo workspace
+# Tartarus - Cargo workspace
 #
 # Two crates:
-#   tartarus-core   — the isolation engine (wasmtime/WASI sandbox), run contract, trace, backends
-#   tartarus-server — axum gateway + worker + queue/store + CLI
+#   tartarus-core   - the isolation engine (wasmtime/WASI sandbox), run contract, trace, backends
+#   tartarus-server - axum gateway + worker + queue/store + CLI
 #
 # Built and pinned against wasmtime 27.x. If you bump wasmtime, the only file that touches its
-# API is crates/tartarus-core/src/sandbox.rs — adjust there.
+# API is crates/tartarus-core/src/sandbox.rs - adjust there.
 
 [workspace]
 resolver = "2"
@@ -27,7 +27,7 @@ thiserror = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
-# Sandbox runtime. default-features=false drops wasmtime's vtune/ittapi profiling support — we don't
+# Sandbox runtime. default-features=false drops wasmtime's vtune/ittapi profiling support - we don't
 # profile guests, and it pulls a C library that needs a modern libc to link. We only need the
 # compiler (cranelift) and the runtime.
 wasmtime = { version = "27", default-features = false, features = ["cranelift", "runtime"] }
@@ -39,6 +39,8 @@ axum = { version = "0.7", features = ["ws"] }
 tower-http = { version = "0.6", features = ["cors", "trace"] }
 clap = { version = "4", features = ["derive", "env"] }
 uuid = { version = "1", features = ["v4", "serde"] }
+hmac = "0.12"
+sha2 = "0.10"
 
 # Distributed mode only (feature-gated). TLS variants chosen so Upstash (rediss://) and
 # Neon (sslmode=require) work out of the box.

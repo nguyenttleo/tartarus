@@ -1,4 +1,4 @@
-# Tartarus API (gateway + worker) — multi-stage build.
+# Tartarus API (gateway + worker) - multi-stage build.
 # Build context is the repo root:  docker build -f deploy/Dockerfile .
 
 # ---- 1. Build the Rust binary (distributed = Redis + Postgres support) ----

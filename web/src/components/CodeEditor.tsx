@@ -1,6 +1,7 @@
 "use client";
 
 import Editor, { type BeforeMount } from "@monaco-editor/react";
+import { Prompt } from "@/components/terminal/Prompt";
 import type { Language } from "@/lib/types";
 
 const MONACO_LANG: Record<Language, string> = {
@@ -14,12 +15,15 @@ const defineTheme: BeforeMount = (monaco) => {
     inherit: true,
     rules: [],
     colors: {
-      "editor.background": "#0b0f13",
-      "editor.foreground": "#ccd6d0",
-      "editorLineNumber.foreground": "#314039",
+      "editor.background": "#060809",
+      "editor.foreground": "#d6e0da",
+      "editorLineNumber.foreground": "#55685e",
+      "editorLineNumber.activeForeground": "#9fb4a8",
       "editorCursor.foreground": "#46f7a4",
       "editor.selectionBackground": "#1f7d5755",
-      "editor.lineHighlightBackground": "#0f141a",
+      "editor.lineHighlightBackground": "#0c1116",
+      "editorWidget.background": "#0b0f13",
+      "editorIndentGuide.background1": "#16201b",
     },
   });
 };
@@ -41,7 +45,11 @@ export function CodeEditor({
       value={value}
       beforeMount={defineTheme}
       onChange={(v) => onChange(v ?? "")}
-      loading={<div className="grid h-full place-items-center text-sm text-muted">loading editor…</div>}
+      loading={
+        <div className="p-4 font-mono text-sm text-muted">
+          <Prompt /> loading editor…<span className="prompt animate-blink"> █</span>
+        </div>
+      }
       options={{
         fontSize: 13,
         fontFamily: "var(--font-jet), ui-monospace, monospace",

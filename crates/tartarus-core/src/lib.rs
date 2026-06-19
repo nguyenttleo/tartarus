@@ -1,6 +1,6 @@
 //! Tartarus isolation engine.
 //!
-//! The crate exposes one small contract — [`types::RunRequest`] / [`types::RunResult`] — and a
+//! The crate exposes one small contract - [`types::RunRequest`] / [`types::RunResult`] - and a
 //! [`backend::Backend`] trait with one working implementation, [`sandbox::WasmBackend`]. Everything
 //! else (the gateway, the worker, the web UI) is built on top of this.
 

@@ -68,7 +68,7 @@ impl Worker {
                         };
                         if esc.succeeded {
                             // The single alert that matters: a guest broke containment.
-                            tracing::error!(run = %res.id, technique = %esc.technique, "ESCAPE SUCCEEDED — paging");
+                            tracing::error!(run = %res.id, technique = %esc.technique, "ESCAPE SUCCEEDED - paging");
                         }
                         if let Err(e) = self.store.record_escape(&rec).await {
                             tracing::error!("record_escape failed: {e:#}");

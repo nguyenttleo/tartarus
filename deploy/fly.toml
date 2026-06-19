@@ -1,7 +1,7 @@
 # Fly.io config for the Tartarus API.
 #
 # Why Fly: every Fly Machine is itself a Firecracker microVM, so the WASM sandbox runs *inside* a
-# microVM — the spec's "Firecracker isolation" becomes literally true at the infrastructure tier,
+# microVM - the spec's "Firecracker isolation" becomes literally true at the infrastructure tier,
 # for free. Scale-to-zero keeps it ~free when idle.
 #
 # Deploy:  fly launch --copy-config --no-deploy   (then set secrets, then `fly deploy`)

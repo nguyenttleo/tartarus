@@ -1,7 +1,7 @@
 # Full local stack with prod parity: Redis queue + Postgres store + the Tartarus API.
 # Run from the repo root:  docker compose -f deploy/docker-compose.yml up --build
 #
-# (For the lightest local loop you don't need this at all — `cargo run -p tartarus-server -- all`
+# (For the lightest local loop you don't need this at all - `cargo run -p tartarus-server -- all`
 #  runs everything in-memory with zero services.)
 
 services:

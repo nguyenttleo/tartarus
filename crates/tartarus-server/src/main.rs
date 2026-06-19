@@ -1,11 +1,12 @@
 //! Tartarus CLI / service entrypoint.
 //!
-//!   tartarus all      gateway + worker in one process (in-memory by default — zero deps)
+//!   tartarus all      gateway + worker in one process (in-memory by default - zero deps)
 //!   tartarus serve    gateway only            (needs Redis + Postgres; build --features distributed)
 //!   tartarus worker   worker pool only        (needs Redis + Postgres; build --features distributed)
 //!   tartarus run      execute one snippet locally and print the result + trace (no HTTP, no queue)
 
 mod api;
+mod labyrinth;
 mod queue;
 mod store;
 mod worker;
@@ -18,9 +19,12 @@ use anyhow::{bail, Context, Result};
 use clap::{Args, Parser, Subcommand};
 use tracing_subscriber::EnvFilter;
 
-use tartarus_core::{build_job, Backend, Language, Limits, RunMode, RunRequest, RunResult, WasmBackend};
+use tartarus_core::{
+    build_job, Backend, Language, Limits, RunMode, RunRequest, RunResult, WasmBackend,
+};
 
 use api::{AppState, LangInfo};
+use labyrinth::LabyrinthState;
 use queue::{InMemoryQueue, Queue};
 use store::{InMemoryStore, Store};
 use worker::Worker;
@@ -97,7 +101,9 @@ struct RunArgs {
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
         .init();
 
     match Cli::parse().cmd {
@@ -124,12 +130,16 @@ fn language_catalog(backend: &WasmBackend) -> Vec<LangInfo> {
 }
 
 /// Build the queue + store pair. Returns `(queue, store, distributed)`.
-async fn make_infra(redis_url: Option<&str>, database_url: Option<&str>) -> Result<(Queue, Store, bool)> {
+async fn make_infra(
+    redis_url: Option<&str>,
+    database_url: Option<&str>,
+) -> Result<(Queue, Store, bool)> {
     #[cfg(feature = "distributed")]
     {
         if let (Some(r), Some(d)) = (redis_url, database_url) {
             tracing::info!("distributed mode: Redis queue + Postgres store");
-            let queue = Queue::Redis(RedisQueue::new(r, "tartarus:jobs").context("init redis queue")?);
+            let queue =
+                Queue::Redis(RedisQueue::new(r, "tartarus:jobs").context("init redis queue")?);
             let store = Store::Postgres(PgStore::connect(d).await.context("connect postgres")?);
             return Ok((queue, store, true));
         }
@@ -141,49 +151,64 @@ async fn make_infra(redis_url: Option<&str>, database_url: Option<&str>) -> Resu
         }
     }
     tracing::info!("in-memory mode: no external services required");
-    Ok((Queue::InMemory(InMemoryQueue::new()), Store::InMemory(InMemoryStore::default()), false))
+    Ok((
+        Queue::InMemory(InMemoryQueue::new()),
+        Store::InMemory(InMemoryStore::default()),
+        false,
+    ))
 }
 
 async fn cmd_all(args: InfraArgs) -> Result<()> {
     let wasm = Arc::new(WasmBackend::new(&args.runtimes_dir).context("init wasm backend")?);
     warn_if_no_runtimes(&wasm);
     let languages = language_catalog(&wasm);
-    let (queue, store, _distributed) = make_infra(args.redis_url.as_deref(), args.database_url.as_deref()).await?;
+    let (queue, store, _distributed) =
+        make_infra(args.redis_url.as_deref(), args.database_url.as_deref()).await?;
 
     let backend: Arc<dyn Backend> = wasm.clone();
     Worker::new(queue.clone(), store.clone(), backend).spawn_pool(args.concurrency);
 
-    serve_http(&args.bind, AppState {
-        queue,
-        store,
-        languages,
-        max_limits: Limits::MAX,
-        started: Instant::now(),
-        backend_name: "wasm",
-    })
+    serve_http(
+        &args.bind,
+        AppState {
+            queue,
+            store,
+            labyrinth: LabyrinthState::from_env(),
+            languages,
+            max_limits: Limits::MAX,
+            started: Instant::now(),
+            backend_name: "wasm",
+        },
+    )
     .await
 }
 
 async fn cmd_serve(args: InfraArgs) -> Result<()> {
-    let (queue, store, distributed) = make_infra(args.redis_url.as_deref(), args.database_url.as_deref()).await?;
+    let (queue, store, distributed) =
+        make_infra(args.redis_url.as_deref(), args.database_url.as_deref()).await?;
     if !distributed {
         bail!("`serve` needs REDIS_URL + DATABASE_URL and a binary built with `--features distributed`. For local use run `tartarus all`.");
     }
     let wasm = WasmBackend::new(&args.runtimes_dir).context("init wasm backend")?;
     let languages = language_catalog(&wasm);
-    serve_http(&args.bind, AppState {
-        queue,
-        store,
-        languages,
-        max_limits: Limits::MAX,
-        started: Instant::now(),
-        backend_name: "wasm",
-    })
+    serve_http(
+        &args.bind,
+        AppState {
+            queue,
+            store,
+            labyrinth: LabyrinthState::from_env(),
+            languages,
+            max_limits: Limits::MAX,
+            started: Instant::now(),
+            backend_name: "wasm",
+        },
+    )
     .await
 }
 
 async fn cmd_worker(args: InfraArgs) -> Result<()> {
-    let (queue, store, distributed) = make_infra(args.redis_url.as_deref(), args.database_url.as_deref()).await?;
+    let (queue, store, distributed) =
+        make_infra(args.redis_url.as_deref(), args.database_url.as_deref()).await?;
     if !distributed {
         bail!("`worker` needs REDIS_URL + DATABASE_URL and a binary built with `--features distributed`. For local use run `tartarus all`.");
     }
@@ -191,8 +216,13 @@ async fn cmd_worker(args: InfraArgs) -> Result<()> {
     warn_if_no_runtimes(&wasm);
     let backend: Arc<dyn Backend> = wasm;
     Worker::new(queue, store, backend).spawn_pool(args.concurrency);
-    tracing::info!("worker pool running ({} workers); ctrl-c to stop", args.concurrency);
-    tokio::signal::ctrl_c().await.context("install ctrl-c handler")?;
+    tracing::info!(
+        "worker pool running ({} workers); ctrl-c to stop",
+        args.concurrency
+    );
+    tokio::signal::ctrl_c()
+        .await
+        .context("install ctrl-c handler")?;
     Ok(())
 }
 
@@ -202,7 +232,9 @@ async fn cmd_run(args: RunArgs) -> Result<()> {
         .with_context(|| format!("unknown language '{}' (use python|javascript)", args.lang))?;
 
     let source = match (&args.file, &args.code) {
-        (Some(f), _) => std::fs::read_to_string(f).with_context(|| format!("read {}", f.display()))?,
+        (Some(f), _) => {
+            std::fs::read_to_string(f).with_context(|| format!("read {}", f.display()))?
+        }
         (None, Some(c)) => c.clone(),
         (None, None) => bail!("provide --file <path> or --code <source>"),
     };
@@ -218,7 +250,11 @@ async fn cmd_run(args: RunArgs) -> Result<()> {
         limits.memory_bytes = mb * 1024 * 1024;
     }
 
-    let mode = if args.arena { RunMode::Arena } else { RunMode::Normal };
+    let mode = if args.arena {
+        RunMode::Arena
+    } else {
+        RunMode::Normal
+    };
     let req = RunRequest {
         lang,
         source,
@@ -228,7 +264,10 @@ async fn cmd_run(args: RunArgs) -> Result<()> {
         technique: args.technique,
     };
     let canary = if args.arena {
-        Some(format!("TARTARUS_FLAG{{{}}}", uuid::Uuid::new_v4().simple()))
+        Some(format!(
+            "TARTARUS_FLAG{{{}}}",
+            uuid::Uuid::new_v4().simple()
+        ))
     } else {
         None
     };
@@ -248,17 +287,20 @@ async fn cmd_run(args: RunArgs) -> Result<()> {
 
 async fn serve_http(bind: &str, state: AppState) -> Result<()> {
     let app = api::router(state);
-    let listener = tokio::net::TcpListener::bind(bind).await.with_context(|| format!("bind {bind}"))?;
+    let listener = tokio::net::TcpListener::bind(bind)
+        .await
+        .with_context(|| format!("bind {bind}"))?;
     tracing::info!("tartarus gateway listening on http://{bind}");
     axum::serve(listener, app).await.context("axum serve")?;
     Ok(())
 }
 
 fn warn_if_no_runtimes(backend: &WasmBackend) {
-    let any = backend.lang_available(Language::Python) || backend.lang_available(Language::Javascript);
+    let any =
+        backend.lang_available(Language::Python) || backend.lang_available(Language::Javascript);
     if !any {
         tracing::warn!(
-            "no interpreter runtimes found in {:?} — run runtimes/fetch-runtimes.(sh|ps1) first; \
+            "no interpreter runtimes found in {:?} - run runtimes/fetch-runtimes.(sh|ps1) first; \
              the API will report languages as unavailable until then",
             backend.runtimes_dir()
         );
@@ -266,7 +308,12 @@ fn warn_if_no_runtimes(backend: &WasmBackend) {
 }
 
 fn print_human(r: &RunResult) {
-    println!("── tartarus · {} · backend={} · {:?}", r.lang.as_str(), r.backend, r.outcome);
+    println!(
+        "── tartarus · {} · backend={} · {:?}",
+        r.lang.as_str(),
+        r.backend,
+        r.outcome
+    );
     println!(
         "exit={:?} duration={}ms timedOut={} oom={} truncated={} fuel={:?}",
         r.exit_code, r.duration_ms, r.timed_out, r.oom, r.output_truncated, r.fuel_used
@@ -280,7 +327,7 @@ fn print_human(r: &RunResult) {
     println!("\n[trace]");
     for e in &r.trace {
         println!(
-            "  {:>5}ms {}{} — {}",
+            "  {:>5}ms {}{} - {}",
             e.t_ms,
             if e.denied { "✗ " } else { "  " },
             e.kind,
@@ -289,7 +336,7 @@ fn print_human(r: &RunResult) {
     }
     if let Some(esc) = &r.escape {
         println!(
-            "\n[arena] technique={} succeeded={} — {}",
+            "\n[arena] technique={} succeeded={} - {}",
             esc.technique, esc.succeeded, esc.notes
         );
     }

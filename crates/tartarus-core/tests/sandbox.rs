@@ -93,7 +93,7 @@ fn memory_bomb_is_capped() {
     // Grow memory in 16 MiB chunks against a 128 MiB cap until the limiter refuses a grow.
     // (A single huge bytearray would overflow wasm32's 32-bit size type and raise before allocating.)
     let limits = Limits { memory_bytes: 128 * 1024 * 1024, ..Limits::default() };
-    // NB: raw string — a normal "\<newline>" literal would strip the Python indentation.
+    // NB: raw string - a normal "\<newline>" literal would strip the Python indentation.
     let src = r#"
 chunks = []
 try:

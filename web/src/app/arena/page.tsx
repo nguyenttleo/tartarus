@@ -5,9 +5,26 @@ import { CodeEditor } from "@/components/CodeEditor";
 import { OutputPanel } from "@/components/OutputPanel";
 import { SiteHeader } from "@/components/SiteHeader";
 import { TracePanel } from "@/components/TracePanel";
+import { AsciiSpinner } from "@/components/terminal/AsciiSpinner";
+import { GlitchText } from "@/components/terminal/GlitchText";
+import { Prompt } from "@/components/terminal/Prompt";
+import { Select } from "@/components/terminal/Select";
+import { MAGNIFIER } from "@/components/terminal/spinModels";
+import { Ticker } from "@/components/terminal/Ticker";
 import { apiConfigured, getHealth, getLeaderboard, runAndWait } from "@/lib/api";
 import { ARENA_STARTERS } from "@/lib/snippets";
 import type { Health, Language, LeaderboardSummary, RunResult } from "@/lib/types";
+
+const ARENA_FACTS = [
+  "canary lives on the host",
+  "never handed to the guest",
+  "no sockets",
+  "no host fs",
+  "if it leaks into output → BREACH",
+  "every attempt is logged",
+  "leaderboard by technique",
+  "wasmtime/wasi containment",
+];
 
 export default function ArenaPage() {
   const configured = apiConfigured();
@@ -75,21 +92,48 @@ export default function ArenaPage() {
 
       <main className="mx-auto max-w-[1400px] px-4 py-4">
         {/* Headline */}
-        <div className="panel mb-4 flex flex-wrap items-center justify-between gap-4 p-5">
-          <div>
-            <h1 className="text-xl font-bold tracking-wide text-accent glow">The Escape Arena</h1>
-            <p className="mt-1 max-w-2xl text-sm text-muted">
-              A secret flag lives on the host, outside the sandbox. Write code that exfiltrates it. Every
-              attempt is logged. The sandbox grants no network and no host filesystem — so far, nothing has
-              gotten out.
-            </p>
+        <div className="panel mb-4 overflow-hidden">
+          <div className="titlebar flex items-center gap-3 px-3 py-2 text-xs text-muted">
+            <span className="win-dots" aria-hidden>
+              <i />
+              <i />
+              <i />
+            </span>
+            <span className="font-mono">hacker@tartarus: ~/arena - breakout</span>
           </div>
-          <div className="text-right">
-            <div className="text-3xl font-bold text-accent">
-              {board ? board.totalEscapes : "—"}
-              <span className="text-muted"> / {board ? board.totalAttempts : "—"}</span>
+          <div className="flex flex-wrap items-end justify-between gap-6 p-6">
+            <div className="min-w-0">
+              <div className="font-mono text-sm">
+                <Prompt cwd="~/arena" /> <span className="text-muted">cat /host/canary &amp;&amp; exfil</span>
+              </div>
+              <GlitchText as="h1" className="mt-2 text-4xl leading-none tracking-tight sm:text-5xl">
+                ESCAPE_ARENA
+              </GlitchText>
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">
+                A secret flag lives on the host, outside the sandbox. Write code that exfiltrates it. Every
+                attempt is logged. The guest gets no network and no host filesystem -{" "}
+                <span className="text-accent">so far, nothing has gotten out.</span>
+              </p>
             </div>
-            <div className="text-xs uppercase tracking-widest text-muted">successful escapes / attempts</div>
+            <div className="relative hidden w-[14rem] shrink-0 self-stretch xl:block" aria-hidden>
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden">
+                <AsciiSpinner model={MAGNIFIER} cols={32} rows={16} scale={16} yoff={-0.05} />
+              </div>
+            </div>
+            <div className="shrink-0 border border-border bg-black/30 px-5 py-3 text-right">
+              <div className="font-display text-5xl leading-none">
+                <span className={board && board.totalEscapes > 0 ? "text-red glow-strong" : "text-accent glow"}>
+                  {board ? board.totalEscapes : "-"}
+                </span>
+                <span className="text-faint"> / {board ? board.totalAttempts : "-"}</span>
+              </div>
+              <div className="mt-2 font-terminal text-[11px] uppercase tracking-[0.18em] text-muted">
+                escapes / attempts
+              </div>
+            </div>
+          </div>
+          <div className="border-t border-border py-2">
+            <Ticker items={ARENA_FACTS} />
           </div>
         </div>
 
@@ -97,43 +141,46 @@ export default function ArenaPage() {
           {/* Attempt column */}
           <section className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <select
+              <Select
+                ariaLabel="Language"
                 value={lang}
-                onChange={(e) => setLang(e.target.value as Language)}
-                className="rounded border border-border bg-surface px-2 py-1.5 text-sm"
-                aria-label="Language"
-              >
-                {(health?.languages ?? []).map((l) => (
-                  <option key={l.id} value={l.id} disabled={!l.available}>
-                    {l.label}
-                    {!l.available ? " (unavailable)" : ""}
-                  </option>
-                ))}
-                {!health && <option value={lang}>{lang}</option>}
-              </select>
+                onChange={(v) => setLang(v as Language)}
+                options={
+                  (health?.languages ?? []).length === 0
+                    ? [{ value: lang, label: lang }]
+                    : (health?.languages ?? []).map((l) => ({
+                        value: l.id,
+                        label: l.available ? l.label : `${l.label} (unavailable)`,
+                        disabled: !l.available,
+                      }))
+                }
+              />
 
               <input
                 value={technique}
                 onChange={(e) => setTechnique(e.target.value)}
                 placeholder="technique label"
-                className="min-w-0 flex-1 rounded border border-border bg-surface px-2 py-1.5 text-sm"
+                className="field min-w-0 flex-1 px-3 py-2 text-sm placeholder:text-muted"
                 aria-label="Technique"
               />
 
-              <button
-                onClick={() => void attempt()}
-                disabled={!canRun}
-                className="rounded bg-red px-4 py-1.5 text-sm font-semibold text-[#1a0606] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-              >
+              <button onClick={() => void attempt()} disabled={!canRun} className="btn-danger">
                 {running ? "attempting…" : "Attempt escape ▸"}
               </button>
             </div>
 
             <div className="panel flex h-[48vh] flex-col overflow-hidden">
-              <div className="titlebar px-3 py-1.5 text-xs text-muted">
-                <span className="prompt">~/arena</span> $ {lang === "python" ? "exploit.py" : "exploit.js"}
+              <div className="titlebar flex items-center gap-3 px-3 py-2 text-xs text-muted">
+                <span className="win-dots" aria-hidden>
+                  <i />
+                  <i />
+                  <i />
+                </span>
+                <span className="font-mono">
+                  <span className="prompt">~/arena</span> $ {lang === "python" ? "exploit.py" : "exploit.js"}
+                </span>
               </div>
-              <div className="min-h-0 flex-1">
+              <div className="screen min-h-0 flex-1 overflow-hidden rounded-none border-0">
                 <CodeEditor
                   language={lang}
                   value={sources[lang]}
@@ -144,19 +191,23 @@ export default function ArenaPage() {
 
             {result?.escape && (
               <div
-                className={`rounded border px-4 py-2 text-sm ${
+                className={`flex flex-wrap items-center gap-x-2 border px-4 py-2.5 font-mono text-sm ${
                   breached ? "border-red/50 bg-red/10 text-red" : "border-accent/40 bg-accent/5 text-accent"
                 }`}
               >
-                {breached ? "⚠ BREACH — canary leaked!" : "✓ Contained"} · technique:{" "}
-                {result.escape.technique} — {result.escape.notes}
+                <span className="font-bold">
+                  {breached ? "⚠ BREACH - canary leaked!" : "✓ CONTAINED"}
+                </span>
+                <span className="text-muted">
+                  · technique: {result.escape.technique} - {result.escape.notes}
+                </span>
               </div>
             )}
           </section>
 
           {/* Result column */}
           <section className="panel flex h-[calc(48vh+3rem)] flex-col overflow-hidden">
-            <div className="titlebar flex items-center gap-1 px-2 py-1 text-xs">
+            <div className="titlebar flex items-center gap-1 px-2 py-1.5 text-xs">
               <TabBtn label="output" active={tab === "output"} onClick={() => setTab("output")} />
               <TabBtn label="trace" active={tab === "trace"} onClick={() => setTab("trace")} />
             </div>
@@ -168,22 +219,31 @@ export default function ArenaPage() {
 
         {/* Leaderboard */}
         <section className="panel mt-4 overflow-hidden">
-          <div className="titlebar px-3 py-1.5 text-xs text-muted">hall of fame · attempts by technique</div>
+          <div className="titlebar flex items-center gap-2 px-3 py-2 font-terminal text-xs uppercase tracking-wider text-muted">
+            <span className="text-accent/70" aria-hidden>
+              ▚
+            </span>
+            ~/arena/leaderboard · attempts by technique
+          </div>
           {board && board.techniques.length > 0 ? (
             <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase tracking-widest text-muted">
+              <thead className="bg-surface-2/50 text-left font-terminal text-[11px] uppercase tracking-[0.16em] text-muted">
                 <tr>
-                  <th className="px-4 py-2">technique</th>
-                  <th className="px-4 py-2 text-right">attempts</th>
-                  <th className="px-4 py-2 text-right">escapes</th>
+                  <th className="px-4 py-2.5 font-medium">technique</th>
+                  <th className="px-4 py-2.5 text-right font-medium">attempts</th>
+                  <th className="px-4 py-2.5 text-right font-medium">escapes</th>
                 </tr>
               </thead>
               <tbody>
                 {board.techniques.map((t) => (
-                  <tr key={t.technique} className="border-t border-border/40">
-                    <td className="px-4 py-2">{t.technique}</td>
-                    <td className="px-4 py-2 text-right text-muted">{t.attempts}</td>
-                    <td className={`px-4 py-2 text-right ${t.escapes > 0 ? "text-red" : "text-accent"}`}>
+                  <tr key={t.technique} className="border-t border-border/40 transition-colors hover:bg-surface-2/40">
+                    <td className="px-4 py-2.5 font-mono text-foreground">{t.technique}</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-muted">{t.attempts}</td>
+                    <td
+                      className={`px-4 py-2.5 text-right font-mono font-semibold ${
+                        t.escapes > 0 ? "text-red" : "text-accent/80"
+                      }`}
+                    >
                       {t.escapes}
                     </td>
                   </tr>
@@ -191,7 +251,7 @@ export default function ArenaPage() {
               </tbody>
             </table>
           ) : (
-            <div className="p-4 text-sm text-muted">No attempts recorded yet — be the first.</div>
+            <div className="p-6 text-center text-sm text-muted">No attempts recorded yet - be the first.</div>
           )}
         </section>
       </main>
@@ -203,9 +263,11 @@ function TabBtn({ label, active, onClick }: { label: string; active: boolean; on
   return (
     <button
       onClick={onClick}
-      className={`rounded px-3 py-1 ${active ? "bg-accent/10 text-accent" : "text-muted hover:text-foreground"}`}
+      className={`px-3 py-1 font-terminal transition-colors ${
+        active ? "prompt glow" : "text-muted hover:text-accent"
+      }`}
     >
-      {label}
+      {active ? `[${label}]` : label}
     </button>
   );
 }
