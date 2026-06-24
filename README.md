@@ -2,7 +2,7 @@
 
 Tartarus is a secure code execution sandbox I built for running untrusted code with strict limits and a visible audit trail.
 
-The basic contract is small: send code, choose limits, get back stdout, stderr, exit status, timing, resource flags, and a host-observed trace of what the run attempted.
+Send code, choose limits, get back stdout, stderr, exit status, timing, resource flags, and a host-observed trace of what the run attempted.
 
 ## What It Does
 
