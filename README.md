@@ -1,108 +1,152 @@
-# Tartarus - Secure Code Execution Sandbox
+# Tartarus
 
-> A service that executes untrusted, attacker-controlled code safely and reproducibly - hardened
-> enough to host hostile workloads, and confident enough to invite escape attempts.
+Tartarus is a secure code execution sandbox I built for running untrusted code with strict limits and a visible audit trail.
 
-Tartarus exposes one tiny contract - *"run this code with these limits; return its output and a
-trace of everything it tried to do"* - behind a pluggable isolation backend. v1 ships a real
-**WebAssembly/WASI** backend (wasmtime): untrusted code runs as WASM bytecode with **no network, no
-host filesystem, and no ambient authority**, under hard CPU, memory, wall-clock, and output limits.
-It ships with a public **Escape Arena** that logs contained breakout attempts.
+The basic contract is small: send code, choose limits, get back stdout, stderr, exit status, timing, resource flags, and a host-observed trace of what the run attempted.
 
+## What It Does
+
+- Runs Python and JavaScript through pinned WASI interpreter modules
+- Uses Wasmtime to isolate each run from the host
+- Blocks network access and host filesystem access
+- Enforces wall-clock, CPU, memory, and output limits
+- Records a syscall-style trace for provisioning, I/O, and denied actions
+- Includes an Escape Arena for testing breakout attempts against a host-only canary
+
+## Architecture
+
+```text
+Next.js IDE -> Rust gateway -> queue -> worker -> Wasmtime/WASI sandbox
+      ^                                                   |
+      +------------- result, output, and trace ------------+
 ```
-web (Next.js / Vercel) ──HTTP──▶ gateway (axum) ──enqueue──▶ queue ──▶ worker
-  Monaco IDE · trace · arena        validate/clamp           Redis│mem    │ wasmtime + WASI sandbox
-        ▲                                                          ▼        ▼  (one ephemeral Store per run)
-        └────────────── result + syscall-style trace ◀──────── store ◀──────┘
-                                                          Postgres│mem
-```
 
-## Internals
+Local development can run fully in memory. Distributed mode can use Redis for the queue and Postgres for stored results and arena history.
 
-- **WASM/WASI isolation (wasmtime):** fuel metering (CPU), epoch interruption (wall-clock), a
-  `ResourceLimiter` (memory), capped output pipes, and a capability-scoped WASI context - empty env,
-  no sockets, a read-only `/sandbox` and a small writable `/tmp`, nothing else.
-- **Languages:** Python (CPython·WASI) and JavaScript (QuickJS·WASI), run from pinned interpreter
-  modules. Adding a language is a few lines in `crates/tartarus-core/src/lang.rs`.
-- **Syscall-style trace:** the host records what each run *attempted* - provisioning, I/O, and every
-  limit it tripped - and renders it in a terminal-style panel.
-- **Escape Arena:** a per-run canary lives only on the host and is never given to the sandbox. If it
-  ever shows up in guest output, that's a real breach - logged, surfaced on a leaderboard, paged on.
-- **Pluggable backends:** `Backend` is a trait. gVisor and Firecracker per-run backends are designed
-  in and documented (they need a Linux/KVM host); WASM is the one built today.
+## Repository Layout
 
-## Layout
-
-| Path | What |
+| Path | Purpose |
 | --- | --- |
-| `crates/tartarus-core` | The isolation engine: run contract, limits, `Backend` trait, wasmtime sandbox, trace. |
-| `crates/tartarus-server` | axum gateway + worker pool + queue/store (in-memory or Redis/Postgres) + CLI. |
-| `web/` | Next.js IDE: Monaco editor, output + trace panels, and Escape Arena. |
-| `runtimes/` | Fetch scripts + lockfile for the WASI interpreter modules. |
-| `deploy/` | Dockerfile, Fly + docker-compose, and **[HOSTING.md](deploy/HOSTING.md)**. |
-| `migrations/` | Postgres schema (distributed mode). |
+| `crates/tartarus-core` | Sandbox engine, limits, trace events, backend trait, and Wasmtime/WASI implementation |
+| `crates/tartarus-server` | Axum API, worker pool, queue/store adapters, and CLI |
+| `web/` | Next.js IDE with Monaco, output panels, trace view, and Escape Arena |
+| `runtimes/` | Scripts and lockfile for the WASI interpreter modules |
+| `deploy/` | Docker, Fly.io, docker-compose, and hosting notes |
+| `migrations/` | Postgres schema for distributed mode |
 
-## Quickstart (zero external services)
+## Quickstart
 
-```bash
-# 1. Fetch the interpreter runtimes (~once)
-./runtimes/fetch-runtimes.sh                 # Windows: powershell -File runtimes\fetch-runtimes.ps1
-
-# 2. Run one snippet straight through the sandbox - no server needed
-cargo run -p tartarus-server -- run --lang python --code "print('hello from inside Tartarus')"
-
-# 3. Or run the full service (gateway + worker, in-memory)
-cargo run -p tartarus-server -- all          # http://localhost:8080
-
-# 4. And the web IDE
-cd web && cp .env.example .env.local && npm install && npm run dev   # http://localhost:3000
-```
-
-Point the web app at the local API:
+Fetch the interpreter runtimes first:
 
 ```bash
-NEXT_PUBLIC_TARTARUS_API=http://localhost:8080 npm run dev
+./runtimes/fetch-runtimes.sh
 ```
 
-Watch the limits work:
+On Windows:
+
+```powershell
+powershell -File runtimes\fetch-runtimes.ps1
+```
+
+Run a snippet without starting the web app:
 
 ```bash
-cargo run -p tartarus-server -- run --lang python --wall-ms 1500 --code "while True: pass"   # -> killed
-cargo run -p tartarus-server -- run --lang python --memory-mb 128 --code "bytearray(2*1024**3)" # -> oom
+cargo run -p tartarus-server -- run --lang python --code "print('hello from Tartarus')"
 ```
+
+Start the API and worker together:
+
+```bash
+cargo run -p tartarus-server -- all
+```
+
+The API listens on `http://localhost:8080`.
+
+Start the web IDE:
+
+```bash
+cd web
+cp .env.example .env.local
+npm install
+npm run dev
+```
+
+Set this in `web/.env.local` if it is not already there:
+
+```text
+NEXT_PUBLIC_TARTARUS_API=http://localhost:8080
+```
+
+The web app runs at `http://localhost:3000`.
+
+## Limit Checks
+
+These are useful sanity checks when changing the sandbox:
+
+```bash
+cargo run -p tartarus-server -- run --lang python --wall-ms 1500 --code "while True: pass"
+cargo run -p tartarus-server -- run --lang python --memory-mb 128 --code "bytearray(2*1024**3)"
+```
+
+The first should time out. The second should hit the memory limit.
 
 ## Testing
 
 ```bash
-./runtimes/fetch-runtimes.sh        # tests that need an interpreter skip gracefully without this
-cargo test -p tartarus-core         # hello-world, CPU spin, memory bomb, output flood, host-fs denied
+./runtimes/fetch-runtimes.sh
+cargo test -p tartarus-core
 ```
+
+The sandbox tests cover normal execution, CPU spin, memory pressure, output flooding, and denied host filesystem access.
 
 ## API
 
-| Method | Path | |
+| Method | Path | Purpose |
 | --- | --- | --- |
-| `POST` | `/run` | `{lang, source, stdin?, limits?, mode?, technique?}` → `{id}` |
-| `GET` | `/run/:id` | `{status:"pending"}` or `{status:"done", result}` |
-| `GET` | `/run/:id/ws` | WebSocket: status frames, then the final `done` frame |
-| `GET` | `/languages` | available languages |
-| `GET` | `/arena/leaderboard` | attempts + escapes by technique |
-| `GET` | `/healthz` | status, backend, languages, max limits |
+| `POST` | `/run` | Enqueue a run |
+| `GET` | `/run/:id` | Poll for a result |
+| `GET` | `/run/:id/ws` | Stream status frames over WebSocket |
+| `GET` | `/languages` | List supported languages |
+| `GET` | `/arena/leaderboard` | Show arena attempts and escapes |
+| `GET` | `/healthz` | Check backend, uptime, languages, and limits |
 
-`RunResult`: `{stdout, stderr, exitCode, durationMs, timedOut, oom, outputTruncated, outcome,
-fuelUsed, trace[], escape?}`.
+`POST /run` accepts:
+
+```json
+{
+  "lang": "python",
+  "source": "print('hello')",
+  "stdin": "",
+  "limits": {
+    "wallMs": 5000,
+    "fuel": 1000000000,
+    "memoryBytes": 134217728,
+    "outputBytes": 262144
+  },
+  "mode": "normal",
+  "technique": null
+}
+```
 
 ## Hosting
 
-Frontend → **Vercel**, API → **Fly.io** (Firecracker microVM), Redis → **Upstash**, Postgres →
-**Neon**. Local dev needs none of them. Full walkthrough in **[deploy/HOSTING.md](deploy/HOSTING.md)**.
+The intended deployment is:
+
+| Piece | Host |
+| --- | --- |
+| Web app | Vercel |
+| API and worker | Fly.io |
+| Queue | Upstash Redis |
+| Results and arena history | Neon Postgres |
+
+Local development does not need any of those services. See `deploy/HOSTING.md` for the full setup.
 
 ## Roadmap
 
-- **M1 (this)** - gateway + WASM worker + Python/JS + limits + web IDE + trace + Escape Arena.
-- **M2** - gVisor backend (native binaries), deterministic mode, per-write trace, Redis-TTL result cache.
-- **M3** - Firecracker per-run microVM backend, backend bake-off, API keys + per-tenant quotas, autoscaling.
+- Current: WASM backend, Python, JavaScript, limits, trace output, web IDE, and Escape Arena
+- Next: gVisor backend, deterministic mode, stronger trace detail, and Redis-backed result caching
+- Later: Firecracker per-run backend, API keys, tenant quotas, and autoscaling
 
 ## License
 
-MIT - see [LICENSE](LICENSE).
+MIT. See `LICENSE`.
