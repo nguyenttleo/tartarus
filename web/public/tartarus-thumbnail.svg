@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" fill="none">
+  <defs>
+    <linearGradient id="field" x1="0" y1="0" x2="1600" y2="900" gradientUnits="userSpaceOnUse"><stop stop-color="#5A22CB"/><stop offset=".52" stop-color="#3519A8"/><stop offset="1" stop-color="#24167F"/></linearGradient>
+    <linearGradient id="ring" x1="878" y1="159" x2="1480" y2="726" gradientUnits="userSpaceOnUse"><stop stop-color="#C66AFF"/><stop offset=".48" stop-color="#783CF0"/><stop offset="1" stop-color="#592BCB"/></linearGradient>
+    <radialGradient id="core" cx="0" cy="0" r="1" gradientTransform="translate(1176 449) rotate(90) scale(360)"><stop stop-color="#102778"/><stop offset="1" stop-color="#07194D"/></radialGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#field)"/>
+  <circle cx="1174" cy="450" r="365" fill="url(#core)"/>
+  <circle cx="1174" cy="450" r="365" stroke="url(#ring)" stroke-width="112" stroke-dasharray="1845 500" transform="rotate(-42 1174 450)"/>
+  <text x="112" y="496" fill="#F8F6FF" font-family="Bahnschrift, Segoe UI, sans-serif" font-size="96" font-weight="700" letter-spacing="2">TARTARUS</text>
+  <text x="120" y="566" fill="#C5B8F1" font-family="Bahnschrift, Segoe UI, sans-serif" font-size="22" font-weight="500" letter-spacing="2">WASM CODE SANDBOX</text>
+</svg>

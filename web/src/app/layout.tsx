@@ -26,9 +26,20 @@ const share = Share_Tech_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://tartarus-rho.vercel.app"),
   title: "TARTARUS // secure code execution sandbox",
   description:
     "Run untrusted, attacker-controlled code safely. WASM/WASI isolation with hard CPU, memory, wall-clock and output limits, a live syscall-style trace, and a public Escape Arena.",
+  openGraph: {
+    title: "TARTARUS // secure code execution sandbox",
+    description:
+      "Run untrusted, attacker-controlled code safely. WASM/WASI isolation with hard CPU, memory, wall-clock and output limits, a live syscall-style trace, and a public Escape Arena.",
+    images: [{ url: "/tartarus-thumbnail.svg", width: 1600, height: 900 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["/tartarus-thumbnail.svg"],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
