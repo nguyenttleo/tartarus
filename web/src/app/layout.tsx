@@ -34,11 +34,11 @@ export const metadata: Metadata = {
     title: "TARTARUS // secure code execution sandbox",
     description:
       "Run untrusted, attacker-controlled code safely. WASM/WASI isolation with hard CPU, memory, wall-clock and output limits, a live syscall-style trace, and a public Escape Arena.",
-    images: [{ url: "/tartarus-thumbnail.svg", width: 1600, height: 900 }],
+    images: [{ url: "/tartarus-thumbnail.png", width: 1600, height: 900, type: "image/png" }],
   },
   twitter: {
     card: "summary_large_image",
-    images: ["/tartarus-thumbnail.svg"],
+    images: ["/tartarus-thumbnail.png"],
   },
 };
 
