@@ -91,7 +91,6 @@ export default function ArenaPage() {
       <SiteHeader active="arena" health={health} configured={configured} />
 
       <main className="mx-auto max-w-[1400px] px-4 py-4">
-        {/* Headline */}
         <div className="panel mb-4 overflow-hidden">
           <div className="titlebar flex items-center gap-3 px-3 py-2 text-xs text-muted">
             <span className="win-dots" aria-hidden>
@@ -138,7 +137,6 @@ export default function ArenaPage() {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
-          {/* Attempt column */}
           <section className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <Select
@@ -205,7 +203,6 @@ export default function ArenaPage() {
             )}
           </section>
 
-          {/* Result column */}
           <section className="panel flex h-[calc(48vh+3rem)] flex-col overflow-hidden">
             <div className="titlebar flex items-center gap-1 px-2 py-1.5 text-xs">
               <TabBtn label="output" active={tab === "output"} onClick={() => setTab("output")} />
@@ -217,7 +214,6 @@ export default function ArenaPage() {
           </section>
         </div>
 
-        {/* Leaderboard */}
         <section className="panel mt-4 overflow-hidden">
           <div className="titlebar flex items-center gap-2 px-3 py-2 font-terminal text-xs uppercase tracking-wider text-muted">
             <span className="text-accent/70" aria-hidden>

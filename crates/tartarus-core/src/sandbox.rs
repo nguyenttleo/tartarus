@@ -1,19 +1,3 @@
-//! The WASM/WASI isolation backend - the part that actually runs hostile code safely.
-//!
-//! Defense in depth, all enforced here:
-//!   * **No network**: WASI preview1 grants no socket-opening capability at all.
-//!   * **No host filesystem**: only a per-run, read-only `/sandbox` (the source) and a small
-//!     writable `/tmp` are preopened; nothing else on the host is reachable.
-//!   * **No environment / no ambient authority**: empty env, argv is just the interpreter + script.
-//!   * **CPU cap**: wasmtime *fuel* metering traps the guest when its instruction budget runs out.
-//!   * **Wall-clock cap**: *epoch interruption* driven by a background ticker traps a hung guest.
-//!   * **Memory cap**: a `ResourceLimiter` refuses `memory.grow` past the limit and flags OOM.
-//!   * **Output cap**: stdout/stderr are captured into fixed-capacity pipes and flagged if filled.
-//!   * **Ephemeral**: a fresh `Store` per run; the temp dir is deleted on the way out.
-//!
-//! Everything wasmtime-specific lives in this file. Pinned to wasmtime 27.x; on a version bump this
-//! is the only module that should need touching.
-
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -32,16 +16,13 @@ use crate::lang::{GUEST_SOURCE_DIR, GUEST_TMP_DIR};
 use crate::trace::Tracer;
 use crate::types::{EscapeOutcome, Language, Limits, Outcome, RunJob, RunMode, RunResult};
 
-/// How often the background ticker advances the engine epoch. Wall-clock granularity.
 const EPOCH_TICK_MS: u64 = 10;
 
-/// Per-`Store` host state: the WASI context plus our memory limiter.
 struct HostState {
     wasi: WasiP1Ctx,
     limiter: MemLimiter,
 }
 
-/// Caps linear-memory growth and records the moment a guest hits the ceiling.
 struct MemLimiter {
     max_memory: usize,
     oom_hit: bool,
@@ -51,6 +32,7 @@ struct MemLimiter {
 impl ResourceLimiter for MemLimiter {
     fn memory_growing(&mut self, current: usize, desired: usize, _maximum: Option<usize>) -> Result<bool> {
         if desired > self.max_memory {
+            // Keep the first failure in the trace.
             if !self.oom_hit {
                 self.tracer.denied(
                     "limit.memory",
@@ -58,7 +40,7 @@ impl ResourceLimiter for MemLimiter {
                 );
             }
             self.oom_hit = true;
-            Ok(false) // deny the growth; the guest sees the allocation fail
+            Ok(false)
         } else {
             Ok(true)
         }
@@ -69,8 +51,6 @@ impl ResourceLimiter for MemLimiter {
     }
 }
 
-/// The WASM/WASI backend. Holds one shared `Engine` (with a single epoch ticker) and a cache of
-/// compiled interpreter modules.
 pub struct WasmBackend {
     engine: Engine,
     runtimes_dir: PathBuf,
@@ -84,7 +64,6 @@ impl WasmBackend {
         config.epoch_interruption(true);
         let engine = Engine::new(&config).context("create wasmtime engine")?;
 
-        // One ticker for the whole engine drives every run's wall-clock deadline.
         let eng = engine.clone();
         let _ticker = thread::Builder::new()
             .name("tartarus-epoch".into())
@@ -101,7 +80,6 @@ impl WasmBackend {
         })
     }
 
-    /// True if this language's interpreter wasm is present on disk (used for health + test skips).
     pub fn lang_available(&self, lang: Language) -> bool {
         lang.wasm_path(&self.runtimes_dir).is_file()
     }
@@ -110,7 +88,6 @@ impl WasmBackend {
         &self.runtimes_dir
     }
 
-    /// Compile (once) and cache the interpreter module for a language.
     fn module_for(&self, lang: Language) -> Result<(Module, usize)> {
         let key = lang.runtime().wasm_file;
         if let Some(found) = self.modules.lock().unwrap().get(key) {
@@ -125,8 +102,6 @@ impl WasmBackend {
         Ok(entry)
     }
 
-    /// The fallible core; `Err` means the sandbox could not even be set up (host's fault). A guest
-    /// trap, timeout or OOM is a normal `Ok(result)`.
     fn try_run(&self, job: &RunJob) -> Result<RunResult> {
         let tracer = Tracer::new();
         let limits = job.limits.clamped();
@@ -142,7 +117,6 @@ impl WasmBackend {
             ),
         );
 
-        // Per-run throwaway directory tree on the host.
         let base = std::env::temp_dir().join("tartarus").join(&job.id);
         let sandbox_dir = base.join("sandbox");
         let tmp_dir = base.join("tmp");
@@ -160,13 +134,11 @@ impl WasmBackend {
         let (module, module_len) = self.module_for(job.lang)?;
         tracer.event("module.load", format!("{} ({module_len} bytes) compiled", job.lang.runtime().wasm_file));
 
-        // Capture pipes. Fixed capacity == output cap; filling one flags truncation.
         let out_cap = limits.output_bytes as usize;
         let stdin_pipe = MemoryInputPipe::new(job.stdin.clone().into_bytes());
         let stdout_pipe = MemoryOutputPipe::new(out_cap);
         let stderr_pipe = MemoryOutputPipe::new(out_cap);
 
-        // The locked-down WASI context.
         let mut builder = WasiCtxBuilder::new();
         builder.stdin(stdin_pipe);
         builder.stdout(stdout_pipe.clone());
@@ -219,7 +191,6 @@ impl WasmBackend {
             Err(e) => classify_error(&e, oom_hit),
         };
 
-        // Collect captured output.
         let stdout_bytes = stdout_pipe.contents();
         let stderr_bytes = stderr_pipe.contents();
         let stdout_trunc = stdout_bytes.len() >= out_cap;
@@ -263,7 +234,6 @@ impl WasmBackend {
         let timed_out = outcome == Outcome::TimedOut;
         let oom = outcome == Outcome::OutOfMemory || oom_hit;
 
-        // Escape Arena scoring: did the host canary leak into guest output? (It never should.)
         let escape = if job.mode == RunMode::Arena {
             let succeeded = match &job.canary {
                 Some(c) => stdout.contains(c.as_str()) || stderr.contains(c.as_str()),
@@ -322,9 +292,7 @@ impl Backend for WasmBackend {
     }
 }
 
-/// Map a guest error to (outcome, exit_code, extra_stderr).
 fn classify_error(e: &anyhow::Error, oom_hit: bool) -> (Outcome, Option<i32>, Option<String>) {
-    // A clean WASI exit (incl. non-zero) arrives as an `I32Exit`.
     if let Some(exit) = e.downcast_ref::<I32Exit>() {
         return (Outcome::Completed, Some(exit.0), None);
     }
@@ -341,7 +309,6 @@ fn classify_error(e: &anyhow::Error, oom_hit: bool) -> (Outcome, Option<i32>, Op
     (Outcome::Trapped, None, Some(format!("{e:#}")))
 }
 
-/// Deletes the per-run temp tree when the run ends, however it ends.
 struct DirGuard(PathBuf);
 
 impl Drop for DirGuard {
@@ -350,7 +317,6 @@ impl Drop for DirGuard {
     }
 }
 
-/// Default per-deployment limits (re-exported for the server's clamping defaults).
 pub fn default_limits() -> Limits {
     Limits::default()
 }

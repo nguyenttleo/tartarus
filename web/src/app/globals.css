@@ -1,17 +1,10 @@
 @import "tailwindcss";
 
-/* ------------------------------------------------------------------ */
-/*  TARTARUS - LeoOS terminal design tokens                            */
-/*  A hacking-sandbox console: phosphor CRT, scanlines, ASCII field.   */
-/*  The CRT lives ON TOP of the chrome - but every code editor / output*/
-/*  surface is a `.screen`, lifted above the CRT so text stays sharp   */
-/*  and unfiltered. (Same carve-out the portfolio uses for previews.)  */
-/* ------------------------------------------------------------------ */
 @theme {
   --font-mono: var(--font-jet), ui-monospace, "SFMono-Regular", Menlo, monospace;
   --font-sans: var(--font-jet), ui-monospace, monospace;
-  --font-display: var(--font-vt), var(--font-jet), monospace; /* VT323 - CRT display */
-  --font-terminal: var(--font-share), var(--font-jet), monospace; /* Share Tech Mono */
+  --font-display: var(--font-vt), var(--font-jet), monospace;
+  --font-terminal: var(--font-share), var(--font-jet), monospace;
 
   --color-background: #07090c;
   --color-surface: #0b0f13;
@@ -23,12 +16,12 @@
   --color-border: rgba(120, 150, 135, 0.16);
   --color-border-strong: rgba(120, 150, 135, 0.32);
 
-  --color-accent: #46f7a4; /* phosphor green - the signature */
+  --color-accent: #46f7a4;
   --color-accent-soft: #1f7d57;
   --color-amber: #ffcf6b;
   --color-red: #ff6b6b;
-  --color-cyan: #5fe9ff; /* glitch / cool channel */
-  --color-magenta: #ff5cf0; /* glitch / hot channel */
+  --color-cyan: #5fe9ff;
+  --color-magenta: #ff5cf0;
 
   --animate-blink: blink 1.05s steps(1) infinite;
   --animate-flicker: flicker 6s linear infinite;
@@ -96,8 +89,6 @@
     color: #04130c;
   }
 
-  /* Native <select> popups: the OS list renders dark-on-dark by default, so
-     force a solid, legible dark menu with light option text. */
   select { color-scheme: dark; }
   option,
   optgroup {
@@ -119,9 +110,6 @@
   ::-webkit-scrollbar-thumb:hover { background: color-mix(in oklab, var(--color-accent) 55%, #11201a); }
 }
 
-/* ================================================================== */
-/*  Components                                                         */
-/* ================================================================== */
 @layer components {
   .glow { text-shadow: 0 0 6px color-mix(in oklab, var(--color-accent) 55%, transparent), 0 0 18px color-mix(in oklab, var(--color-accent) 22%, transparent); }
   .glow-strong { text-shadow: 0 0 8px color-mix(in oklab, var(--color-accent) 70%, transparent), 0 0 26px color-mix(in oklab, var(--color-accent) 38%, transparent); }
@@ -129,10 +117,6 @@
   .font-display { font-family: var(--font-display); }
   .font-terminal { font-family: var(--font-terminal); }
 
-  /* Translucent app chrome - the ASCII field shimmers behind it and the
-     CRT scanlines fall in front, so panels read as glass on a CRT.
-     NOTE: deliberately no backdrop-filter/transform - those would create a
-     stacking context that traps `.screen` below the CRT overlay. */
   .panel {
     background: color-mix(in oklab, var(--color-surface) 72%, transparent);
     border: 1px solid var(--color-border);
@@ -150,8 +134,6 @@
     border-bottom: 1px solid var(--color-border);
   }
 
-  /* The unfiltered surface. Opaque + lifted above the CRT (z-60) so code,
-     stdout/stderr, traces and flags are crisp - never scan-lined. */
   .screen {
     position: relative;
     z-index: 61;
@@ -166,7 +148,6 @@
     background-size: 26px 26px;
   }
 
-  /* mac-style window lights */
   .win-dots { display: inline-flex; align-items: center; gap: 0.4rem; }
   .win-dots > i { width: 0.7rem; height: 0.7rem; border-radius: 9999px; display: block; }
   .win-dots > i:nth-child(1) { background: #ff5f56; }
@@ -196,7 +177,6 @@
     animation: var(--animate-pulse-dot);
   }
 
-  /* Buttons - square, phosphor, terminal */
   .btn-accent, .btn-danger, .btn-outline, .btn-ghost {
     display: inline-flex;
     align-items: center;
@@ -241,7 +221,6 @@
   .btn-ghost { background: transparent; color: var(--color-muted); padding: 0.42rem 0.6rem; }
   .btn-ghost:hover:not(:disabled) { color: var(--color-accent); }
 
-  /* Inputs */
   .field {
     background: color-mix(in oklab, var(--color-surface) 70%, #000);
     border: 1px solid var(--color-border);
@@ -262,12 +241,10 @@
   .link-accent { color: var(--color-accent); text-underline-offset: 3px; }
   .link-accent:hover { text-decoration: underline; text-shadow: 0 0 14px color-mix(in oklab, var(--color-accent) 45%, transparent); }
 
-  /* Marquee ticker */
   .marquee { overflow: hidden; white-space: nowrap; }
   .marquee__track { display: inline-block; will-change: transform; animation: var(--animate-marquee); }
   .marquee:hover .marquee__track { animation-play-state: paused; }
 
-  /* Glitch title - duplicate the text into two offset colour channels */
   .glitch { position: relative; display: inline-block; }
   .glitch::before, .glitch::after {
     content: attr(data-text);
@@ -281,7 +258,6 @@
   .glitch::before { color: var(--color-cyan); animation: glitch-a 2.8s infinite steps(2, end); }
   .glitch::after { color: var(--color-magenta); animation: glitch-b 3.4s infinite steps(2, end); }
 
-  /* Optional scoped scanline texture for hero panels */
   .scanlines::after {
     content: "";
     position: absolute;
@@ -290,7 +266,6 @@
     background: repeating-linear-gradient(0deg, transparent 0, transparent 2px, rgba(0, 0, 0, 0.14) 3px, transparent 4px);
   }
 
-  /* Custom dropdown (terminal Select) menu entrance */
   .pop-in { animation: pop-in 0.13s ease-out; transform-origin: top; }
 }
 
@@ -299,10 +274,6 @@
   to { opacity: 1; transform: none; }
 }
 
-/* ------------------------------------------------------------------ */
-/*  CRT scanlines + vignette overlay (z-60) and a drifting scan beam.  */
-/*  `.screen` sits at z-61 so the editor/output punch through these.   */
-/* ------------------------------------------------------------------ */
 .crt { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
 .crt::before {
   content: "";

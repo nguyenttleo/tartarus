@@ -3,13 +3,6 @@
 import { useEffect, useRef } from "react";
 import type { SpinModel } from "./spinModels";
 
-// Renders a 3D wireframe model spinning around its Y axis as live terminal text.
-// Uses Braille sub-pixel rendering (2x4 dots per character) for smooth lines,
-// and delta-time rotation so the spin speed is steady regardless of frame rate.
-// Writes straight to the <pre> via a ref (no React re-render per frame), pauses
-// when the tab is hidden, and falls back to a single static frame under
-// prefers-reduced-motion. Always render inside an out-of-flow wrapper so its
-// height never affects the surrounding layout.
 const LEFT_BITS = [0x01, 0x02, 0x04, 0x40];
 const RIGHT_BITS = [0x08, 0x10, 0x20, 0x80];
 
@@ -61,8 +54,6 @@ export function AsciiSpinner({
         const y1 = v[1];
         const y2 = y1 * cosT - z1 * sinT;
         const z2 = y1 * sinT + z1 * cosT;
-        // Orthographic keeps straight 3D edges (e.g. cage bars) perfectly straight;
-        // perspective gives a little depth to rounder shapes.
         const p = ortho ? 1 : 4 / (4 + z2);
         return [Math.round(DW / 2 + x1 * p * sX), Math.round(DH / 2 - (y2 - yoff) * p * sY), z2];
       };
@@ -100,8 +91,6 @@ export function AsciiSpinner({
         const [i, j] = model.edges[e];
         const a = project(model.verts[i]);
         const b = project(model.verts[j]);
-        // Frame edges (index < cullFrom) always draw, so the box never breaks up;
-        // bars past it are back-face culled when their midpoint sits behind centre.
         if (e >= cullFrom && (a[2] + b[2]) / 2 > 0.2) continue;
         line(a[0], a[1], b[0], b[1]);
       }

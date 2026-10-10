@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-// A one-shot boot log that plays the first time you land - Tartarus arming its
-// sandbox. Pure CSS fade-out (no framer-motion dep). Once per session.
 const LINES: { t: string; ok: boolean }[] = [
   { t: "TARTARUS v1.0.0 - wasmtime/WASI containment", ok: false },
   { t: "mounting /sandbox  (ro)", ok: true },

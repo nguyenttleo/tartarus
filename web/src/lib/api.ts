@@ -1,6 +1,3 @@
-// Thin client for the Tartarus gateway. The base URL comes from NEXT_PUBLIC_TARTARUS_API; when it's
-// unset the UI shows a "backend not connected" state and never fabricates results.
-
 import type { Health, LeaderboardSummary, RunRequest, RunResult } from "./types";
 
 export const API_BASE = (process.env.NEXT_PUBLIC_TARTARUS_API ?? "").replace(/\/+$/, "");
@@ -36,7 +33,6 @@ interface PollResponse {
   result?: RunResult;
 }
 
-/** Submit a job, then poll until it completes. Throws on transport/timeout errors. */
 export async function runAndWait(
   req: RunRequest,
   opts: { onStatus?: (s: string) => void; timeoutMs?: number } = {}

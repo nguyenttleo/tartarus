@@ -1,7 +1,3 @@
-//! Job queue. In-memory by default (zero dependencies); a Redis list in `distributed` builds.
-//!
-//! Modelled as an enum rather than a `dyn` trait so the async methods stay simple and monomorphic.
-
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
@@ -25,8 +21,6 @@ impl Queue {
         }
     }
 
-    /// Returns the next job, waiting if necessary. `Ok(None)` means "nothing yet, ask again"
-    /// (used by the Redis backend's blocking-pop timeout); callers should simply loop.
     pub async fn dequeue(&self) -> Result<Option<RunJob>> {
         match self {
             Queue::InMemory(q) => Ok(Some(q.dequeue().await)),
@@ -36,8 +30,6 @@ impl Queue {
     }
 }
 
-/// A simple async FIFO. `Notify` carries one permit, so an enqueue that races an idle worker is
-/// not lost; the pre-check before awaiting drains any backlog.
 #[derive(Clone)]
 pub struct InMemoryQueue {
     inner: Arc<Mutex<VecDeque<RunJob>>>,
@@ -101,7 +93,6 @@ impl RedisQueue {
     pub async fn dequeue(&self) -> Result<Option<RunJob>> {
         use redis::AsyncCommands;
         let mut conn = self.client.get_multiplexed_async_connection().await?;
-        // BLPOP returns [key, value] or nil after the timeout.
         let res: Option<(String, String)> = conn.blpop(&self.key, 5.0).await?;
         match res {
             Some((_, payload)) => Ok(Some(serde_json::from_str(&payload)?)),

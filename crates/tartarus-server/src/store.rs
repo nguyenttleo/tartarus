@@ -1,9 +1,3 @@
-//! Result + audit store. In-memory by default; Postgres in `distributed` builds.
-//!
-//! Results are looked up by id (the gateway polls / streams them). Escape attempts feed the public
-//! Escape Arena leaderboard. (The spec's Redis-TTL result cache is a v2 optimisation; v1 keeps
-//! results in the same store as the audit trail.)
-
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -19,7 +13,6 @@ pub fn now_unix() -> i64 {
         .unwrap_or(0)
 }
 
-/// One recorded escape attempt against the Arena.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EscapeRecord {
@@ -131,7 +124,6 @@ impl InMemoryStore {
     }
 }
 
-/// Schema applied on startup (idempotent). Mirrors `migrations/0001_init.sql`.
 #[cfg(feature = "distributed")]
 const SCHEMA_SQL: &str = r#"
 CREATE TABLE IF NOT EXISTS runs (
@@ -177,7 +169,6 @@ impl PgStore {
             .max_connections(5)
             .connect(url)
             .await?;
-        // Apply schema (idempotent). Split on ';' so each statement runs separately.
         for stmt in SCHEMA_SQL.split(';') {
             let s = stmt.trim();
             if !s.is_empty() {

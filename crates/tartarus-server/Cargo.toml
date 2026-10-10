@@ -13,9 +13,7 @@ name = "tartarus"
 path = "src/main.rs"
 
 [features]
-# Default build is fully self-contained: in-memory queue + store, zero external services.
 default = []
-# Production: Redis queue + result cache, Postgres audit/escape store.
 distributed = ["dep:redis", "dep:sqlx"]
 
 [dependencies]

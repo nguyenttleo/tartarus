@@ -9,8 +9,6 @@ export type SelectOption = {
   disabled?: boolean;
 };
 
-// A fully custom, keyboard-navigable dropdown styled as a terminal pick-list.
-// The menu is portaled to the document body so parent overflow never clips it.
 export function Select({
   value,
   options,
@@ -84,11 +82,11 @@ export function Select({
     setOpen(true);
   };
 
-  // Close on outside click.
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
       const target = e.target as Node;
+      // The menu is rendered in a portal.
       if (rootRef.current?.contains(target) || listRef.current?.contains(target)) return;
       setOpen(false);
     };
@@ -96,7 +94,6 @@ export function Select({
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
-  // Keep the portaled menu pinned to its button while the page scrolls or resizes.
   useEffect(() => {
     if (!open) return;
     updateMenuPosition();
@@ -108,7 +105,6 @@ export function Select({
     };
   }, [open, updateMenuPosition]);
 
-  // Keep the active option scrolled into view.
   useEffect(() => {
     if (!open || !listRef.current) return;
     listRef.current
@@ -191,8 +187,6 @@ export function Select({
         aria-controls={open ? `${baseId}-list` : undefined}
         aria-label={ariaLabel}
         aria-activedescendant={open ? `${baseId}-opt-${active}` : undefined}
-        // Mouse clicks have detail >= 1; keyboard-synthesized clicks (detail 0)
-        // are handled in onKeyDown, so ignore them here to avoid double-toggling.
         onClick={(e) => {
           if (e.detail === 0) return;
           if (open) setOpen(false);

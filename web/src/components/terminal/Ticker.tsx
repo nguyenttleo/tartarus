@@ -1,5 +1,3 @@
-// A scrolling status ticker - the sandbox's guarantees on an endless loop.
-// The track is duplicated so the marquee wraps seamlessly; hover to pause.
 export function Ticker({
   items,
   className = "",

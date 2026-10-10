@@ -2,8 +2,6 @@
 
 import { useEffect, useRef } from "react";
 
-// A living fractal-noise ASCII field - the "desktop" the Tartarus console floats on.
-// Pure canvas, phosphor green, reacts to the cursor. Sits behind everything (-z-10).
 const RAMP = " .`':,-~+=*xX#%@";
 
 function makeFbm() {

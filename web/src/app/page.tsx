@@ -125,7 +125,6 @@ export default function IdePage() {
         </div>
       )}
 
-      {/* Hero - the console boots into a sandbox prompt */}
       <section className="mx-auto max-w-[1400px] px-4 pt-5">
         <div className="panel overflow-hidden">
           <div className="titlebar flex items-center gap-3 px-3 py-2 text-xs text-muted">
@@ -166,7 +165,6 @@ export default function IdePage() {
       </section>
 
       <main className="mx-auto grid max-w-[1400px] gap-4 px-4 py-4 lg:grid-cols-2">
-        {/* Editor column */}
         <section className="flex flex-col gap-3">
           <div className="relative z-[70] flex flex-nowrap items-center gap-2 overflow-visible">
             <Select
@@ -251,7 +249,6 @@ export default function IdePage() {
           </div>
         </section>
 
-        {/* Result column */}
         <section className="panel flex h-[calc(52vh+9.5rem)] flex-col overflow-hidden">
           <div className="titlebar flex items-center gap-1 px-2 py-1.5 text-xs">
             <Tab label="output" active={tab === "output"} onClick={() => setTab("output")} />

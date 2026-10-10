@@ -18,5 +18,3 @@ wasmtime.workspace = true
 wasmtime-wasi.workspace = true
 
 [dev-dependencies]
-# Integration tests drive the sandbox directly. They require the interpreter runtimes to be
-# present (run ../../runtimes/fetch-runtimes.sh first) and are skipped gracefully otherwise.

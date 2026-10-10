@@ -1,5 +1,3 @@
-// Two-channel RGB-split glitch title. The cyan/magenta ghosts are decorative
-// (aria-hidden via the duplicated layers) and disabled under reduced-motion.
 export function GlitchText({
   children,
   className = "",

@@ -35,7 +35,6 @@ export function SiteHeader({
   }, []);
 
   return (
-    // z-[80] keeps the bar above the CRT (z-60) and the `.screen` surfaces (z-61).
     <header className="titlebar sticky top-0 z-[80] border-b border-border">
       <div className="mx-auto flex h-10 max-w-[1600px] flex-wrap items-center gap-x-5 gap-y-1 px-4 text-sm">
         <Link href="/" className="flex items-center gap-2 font-terminal" aria-label="Tartarus home">

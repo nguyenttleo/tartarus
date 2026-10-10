@@ -3,7 +3,6 @@
 import { Prompt } from "@/components/terminal/Prompt";
 import type { RunResult } from "@/lib/types";
 
-// Terminal-style view of the syscall/resource trace the host recorded while running the guest.
 export function TracePanel({ result }: { result: RunResult | null }) {
   if (!result) {
     return (

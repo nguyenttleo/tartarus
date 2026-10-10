@@ -1,10 +1,3 @@
-//! Integration tests that drive the WASM sandbox directly. These are the acceptance criteria for
-//! Tartarus's safety claims: hostile code must hit the limits and stay contained.
-//!
-//! They need the interpreter runtimes present (`runtimes/fetch-runtimes.{sh,ps1}`). If a runtime is
-//! missing the relevant test prints a skip notice and passes, so `cargo test` is green on a fresh
-//! checkout and meaningful once runtimes are fetched.
-
 use std::path::PathBuf;
 
 use tartarus_core::types::{Language, Limits, RunMode, RunRequest};
@@ -32,7 +25,6 @@ fn run(lang: Language, source: &str, stdin: &str, limits: Limits, mode: RunMode)
     be.run(&build_job(req, canary))
 }
 
-/// Macro: skip (and pass) when a language's runtime isn't on disk.
 macro_rules! require_lang {
     ($lang:expr) => {{
         let be = backend();
@@ -76,7 +68,6 @@ fn stdin_is_piped() {
 #[test]
 fn cpu_spin_is_stopped() {
     require_lang!(Language::Python);
-    // Tight infinite loop. Either fuel or the wall-clock kills it; never "Completed".
     let limits = Limits { wall_ms: 1500, fuel: 200_000_000, ..Limits::default() };
     let r = run(Language::Python, "while True:\n    pass", "", limits, RunMode::Normal);
     assert!(
@@ -90,10 +81,7 @@ fn cpu_spin_is_stopped() {
 #[test]
 fn memory_bomb_is_capped() {
     require_lang!(Language::Python);
-    // Grow memory in 16 MiB chunks against a 128 MiB cap until the limiter refuses a grow.
-    // (A single huge bytearray would overflow wasm32's 32-bit size type and raise before allocating.)
     let limits = Limits { memory_bytes: 128 * 1024 * 1024, ..Limits::default() };
-    // NB: raw string - a normal "\<newline>" literal would strip the Python indentation.
     let src = r#"
 chunks = []
 try:
@@ -118,7 +106,6 @@ fn output_flood_is_truncated() {
 #[test]
 fn host_filesystem_is_unreachable() {
     require_lang!(Language::Python);
-    // Reading a host path must fail; the canary (which lives only on the host) must not appear.
     let src = r#"
 try:
     print(open('/etc/passwd').read())
@@ -133,7 +120,6 @@ except Exception as e:
 
 #[test]
 fn missing_runtime_is_a_clean_startup_error() {
-    // A backend pointed at an empty dir must report a startup error, not panic.
     let be = WasmBackend::new(std::env::temp_dir().join("tartarus-nonexistent-runtimes")).unwrap();
     let req = RunRequest {
         lang: Language::Python,

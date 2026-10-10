@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Download the WASI interpreter runtimes listed in runtimes.lock.
-# Usage: runtimes/fetch-runtimes.sh
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

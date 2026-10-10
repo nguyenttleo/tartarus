@@ -1,5 +1,3 @@
-# Download the WASI interpreter runtimes listed in runtimes.lock.
-# Usage: pwsh runtimes/fetch-runtimes.ps1   (or)   powershell -File runtimes\fetch-runtimes.ps1
 $ErrorActionPreference = 'Stop'
 
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path

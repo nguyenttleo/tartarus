@@ -1,6 +1,3 @@
-//! The worker: pull a job, run it in a throwaway sandbox on a blocking thread, persist the result
-//! (and any escape attempt), repeat. Workers are independent; run as many as you have cores.
-
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -21,7 +18,6 @@ impl Worker {
         Worker { queue, store, backend }
     }
 
-    /// Spawn `n` worker loops onto the Tokio runtime.
     pub fn spawn_pool(self, n: usize) {
         let shared = Arc::new(self);
         for i in 0..n.max(1) {
@@ -37,7 +33,7 @@ impl Worker {
         loop {
             let job = match self.queue.dequeue().await {
                 Ok(Some(job)) => job,
-                Ok(None) => continue, // queue timeout (Redis); just poll again
+                Ok(None) => continue,
                 Err(e) => {
                     tracing::error!("dequeue failed: {e:#}");
                     tokio::time::sleep(Duration::from_millis(500)).await;
@@ -47,9 +43,8 @@ impl Worker {
 
             let backend = self.backend.clone();
             let job_id = job.id.clone();
-            // Run the sandbox on a plain OS thread, NOT a Tokio worker/blocking thread: wasmtime-wasi's
-            // synchronous WASI calls `block_on` internally, which panics inside a Tokio runtime context.
             let (tx, rx) = tokio::sync::oneshot::channel();
+            // The sandbox runs on its own thread.
             std::thread::spawn(move || {
                 let _ = tx.send(backend.run(&job));
             });
@@ -67,7 +62,6 @@ impl Worker {
                             created_at_unix: now_unix(),
                         };
                         if esc.succeeded {
-                            // The single alert that matters: a guest broke containment.
                             tracing::error!(run = %res.id, technique = %esc.technique, "ESCAPE SUCCEEDED - paging");
                         }
                         if let Err(e) = self.store.record_escape(&rec).await {

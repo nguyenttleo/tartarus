@@ -1,10 +1,5 @@
-//! The Tartarus run contract: the tiny, stable surface shared by the gateway, the worker and
-//! the web client. "Run this code with these limits; return its output and a trace of everything
-//! it tried to do."
-
 use serde::{Deserialize, Serialize};
 
-/// Languages Tartarus can execute. Each maps to a pinned WASI interpreter module (see `lang.rs`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Language {
@@ -29,24 +24,16 @@ impl Language {
     }
 }
 
-/// Per-run resource caps. These are *requested* limits; the gateway clamps them to the deployment's
-/// hard maximums (`Limits::MAX`) before a job is ever enqueued, so a client can ask for less but
-/// never more than the host allows.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Limits {
-    /// Wall-clock budget. Enforced by epoch interruption from a background ticker.
     pub wall_ms: u64,
-    /// CPU budget as wasmtime "fuel" units (roughly one unit per executed instruction).
     pub fuel: u64,
-    /// Maximum linear-memory size the guest may grow to, in bytes.
     pub memory_bytes: u64,
-    /// Maximum combined stdout+stderr bytes captured; output past this is dropped and flagged.
     pub output_bytes: u64,
 }
 
 impl Limits {
-    /// Hard ceiling for a public deployment. Requests are clamped to this.
     pub const MAX: Limits = Limits {
         wall_ms: 10_000,
         fuel: 10_000_000_000,
@@ -54,7 +41,6 @@ impl Limits {
         output_bytes: 1024 * 1024,
     };
 
-    /// Clamp every field to `MAX`, returning the safe-to-run limits.
     pub fn clamped(self) -> Limits {
         Limits {
             wall_ms: self.wall_ms.min(Limits::MAX.wall_ms).max(1),
@@ -76,8 +62,6 @@ impl Default for Limits {
     }
 }
 
-/// What kind of run this is. `Arena` runs are escape attempts against the public Escape Arena and
-/// are scored against a host-side canary (see `EscapeOutcome`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum RunMode {
@@ -91,7 +75,6 @@ impl Default for RunMode {
     }
 }
 
-/// A request as it arrives at the gateway.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RunRequest {
@@ -103,12 +86,10 @@ pub struct RunRequest {
     pub limits: Option<Limits>,
     #[serde(default)]
     pub mode: RunMode,
-    /// For Arena runs: a label of the technique the challenger is attempting (e.g. "read /etc/passwd").
     #[serde(default)]
     pub technique: Option<String>,
 }
 
-/// A validated job handed to a backend. `canary` is only populated for Arena runs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RunJob {
@@ -119,58 +100,39 @@ pub struct RunJob {
     pub limits: Limits,
     pub mode: RunMode,
     pub technique: Option<String>,
-    /// A secret token deliberately placed on the host (outside the sandbox). If a sandboxed program
-    /// ever emits it, isolation has genuinely failed. None for normal runs.
     pub canary: Option<String>,
 }
 
-/// How a run ended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Outcome {
-    /// Guest returned from `_start`/exited normally.
     Completed,
-    /// Wall-clock deadline tripped (epoch interruption).
     TimedOut,
-    /// Memory limit hit on a grow request.
     OutOfMemory,
-    /// CPU/fuel budget exhausted.
     CpuExhausted,
-    /// A guest trap (panic, unreachable, bad access) that isn't one of the resource limits.
     Trapped,
-    /// The sandbox could not be set up (missing runtime, bad module). Not the guest's fault.
     StartupError,
 }
 
-/// One entry in the syscall-style trace. These are emitted by the host as it provisions, runs and
-/// tears down the sandbox - authentic, host-observed events, not a reconstruction.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TraceEvent {
-    /// Monotonic sequence number.
     pub seq: u64,
-    /// Milliseconds since the run started.
     pub t_ms: u64,
-    /// Short machine-readable kind, e.g. "sandbox.provision", "fd_write", "limit.fuel".
     pub kind: String,
-    /// Human-readable detail.
     pub detail: String,
-    /// True when this records an action the sandbox *refused* (the interesting ones for security).
     #[serde(default)]
     pub denied: bool,
 }
 
-/// Result of scoring an Arena escape attempt.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EscapeOutcome {
     pub technique: String,
-    /// True only if the host canary leaked into guest output - a real escape. Should always be false.
     pub succeeded: bool,
     pub notes: String,
 }
 
-/// The full result returned to the client. Field names mirror the spec's contract exactly.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RunResult {
@@ -183,7 +145,6 @@ pub struct RunResult {
     pub duration_ms: u64,
     pub timed_out: bool,
     pub oom: bool,
-    /// True if stdout/stderr were truncated to fit `Limits::output_bytes`.
     pub output_truncated: bool,
     pub outcome: Outcome,
     pub fuel_used: Option<u64>,
@@ -193,7 +154,6 @@ pub struct RunResult {
 }
 
 impl RunResult {
-    /// A result for a run that never got off the ground (setup failure).
     pub fn startup_error(id: impl Into<String>, lang: Language, backend: &str, msg: impl Into<String>) -> Self {
         RunResult {
             id: id.into(),

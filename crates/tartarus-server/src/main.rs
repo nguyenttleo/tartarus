@@ -1,10 +1,3 @@
-//! Tartarus CLI / service entrypoint.
-//!
-//!   tartarus all      gateway + worker in one process (in-memory by default - zero deps)
-//!   tartarus serve    gateway only            (needs Redis + Postgres; build --features distributed)
-//!   tartarus worker   worker pool only        (needs Redis + Postgres; build --features distributed)
-//!   tartarus run      execute one snippet locally and print the result + trace (no HTTP, no queue)
-
 mod api;
 mod queue;
 mod store;
@@ -41,13 +34,9 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// Gateway + worker in one process (in-memory queue/store unless Redis+Postgres are configured).
     All(InfraArgs),
-    /// Gateway only (requires Redis + Postgres).
     Serve(InfraArgs),
-    /// Worker pool only (requires Redis + Postgres).
     Worker(InfraArgs),
-    /// Run a single snippet locally and print the result + trace.
     Run(RunArgs),
 }
 
@@ -67,13 +56,10 @@ struct InfraArgs {
 
 #[derive(Args)]
 struct RunArgs {
-    /// Language: python | javascript
     #[arg(long)]
     lang: String,
-    /// Path to a source file (or use --code).
     #[arg(long)]
     file: Option<PathBuf>,
-    /// Inline source (or use --file).
     #[arg(long)]
     code: Option<String>,
     #[arg(long, env = "RUNTIMES_DIR", default_value = "runtimes")]
@@ -86,12 +72,10 @@ struct RunArgs {
     fuel: Option<u64>,
     #[arg(long)]
     memory_mb: Option<u64>,
-    /// Score this run as an Escape Arena attempt against a host canary.
     #[arg(long)]
     arena: bool,
     #[arg(long)]
     technique: Option<String>,
-    /// Print the full result as JSON instead of a human summary.
     #[arg(long)]
     json: bool,
 }
@@ -127,7 +111,6 @@ fn language_catalog(backend: &WasmBackend) -> Vec<LangInfo> {
     ]
 }
 
-/// Build the queue + store pair. Returns `(queue, store, distributed)`.
 async fn make_infra(
     redis_url: Option<&str>,
     database_url: Option<&str>,
@@ -268,7 +251,6 @@ async fn cmd_run(args: RunArgs) -> Result<()> {
         None
     };
 
-    // Run off the Tokio runtime (see worker.rs): wasmtime-wasi uses block_on internally.
     let job = build_job(req, canary);
     let result = std::thread::spawn(move || wasm.run(&job))
         .join()

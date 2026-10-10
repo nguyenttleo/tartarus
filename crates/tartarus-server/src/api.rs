@@ -1,6 +1,3 @@
-//! The stateless gateway: validate, enqueue, and stream results. No code runs here - the gateway
-//! never touches a sandbox; it only brokers jobs to the worker pool via the queue/store.
-
 use std::time::{Duration, Instant};
 
 use axum::{
@@ -23,7 +20,6 @@ use tartarus_core::{Limits, RunMode, RunRequest};
 use crate::queue::Queue;
 use crate::store::Store;
 
-/// Largest source we accept (the gateway rejects anything bigger before it ever enqueues).
 const MAX_SOURCE_BYTES: usize = 256 * 1024;
 
 #[derive(Clone, Serialize)]
@@ -140,10 +136,7 @@ async fn ws_run(
     ws.on_upgrade(move |socket| ws_loop(socket, st, id))
 }
 
-/// Poll the store and push status frames until the result lands (or we give up). Trace + output
-/// arrive together in the final `done` frame.
 async fn ws_loop(mut socket: WebSocket, st: AppState, id: String) {
-    // ~36s ceiling at 150ms cadence - comfortably above the 10s max wall-clock.
     for _ in 0..240u32 {
         match st.store.get_result(&id).await {
             Ok(Some(result)) => {
@@ -159,7 +152,7 @@ async fn ws_loop(mut socket: WebSocket, st: AppState, id: String) {
                     .await
                     .is_err()
                 {
-                    return; // client went away
+                    return;
                 }
             }
             Err(_) => {
@@ -187,8 +180,6 @@ async fn get_leaderboard(State(st): State<AppState>) -> impl IntoResponse {
     }
 }
 
-/// A per-run secret placed only on the host (never handed to the sandbox). If it ever appears in
-/// guest output, isolation has genuinely failed.
 fn generate_canary() -> String {
     format!("TARTARUS_FLAG{{{}}}", Uuid::new_v4().simple())
 }

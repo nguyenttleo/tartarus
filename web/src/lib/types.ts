@@ -1,6 +1,3 @@
-// Mirror of the Tartarus run contract (crates/tartarus-core/src/types.rs). Field names are camelCase
-// to match the server's serde output.
-
 export type Language = "python" | "javascript";
 
 export type RunMode = "normal" | "arena";
