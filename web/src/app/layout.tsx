@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono, Share_Tech_Mono, VT323 } from "next/font/google";
+import { DM_Mono, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { AsciiField } from "@/components/terminal/AsciiField";
-import { Crt } from "@/components/terminal/Crt";
-import { BootSequence } from "@/components/terminal/BootSequence";
 
 const jet = JetBrains_Mono({
   subsets: ["latin"],
@@ -11,23 +8,17 @@ const jet = JetBrains_Mono({
   display: "swap",
 });
 
-const vt = VT323({
+const dm = DM_Mono({
   subsets: ["latin"],
-  weight: "400",
-  variable: "--font-vt",
-  display: "swap",
-});
-
-const share = Share_Tech_Mono({
-  subsets: ["latin"],
-  weight: "400",
-  variable: "--font-share",
+  weight: ["400", "500"],
+  style: "normal",
+  variable: "--font-dm",
   display: "swap",
 });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://tartarus-rho.vercel.app"),
-  title: "TARTARUS // secure code execution sandbox",
+  title: "Tartarus",
   description:
     "Run untrusted, attacker-controlled code safely. WASM/WASI isolation with hard CPU, memory, wall-clock and output limits, a live syscall-style trace, and a public Escape Arena.",
   openGraph: {
@@ -44,13 +35,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${jet.variable} ${vt.variable} ${share.variable}`}>
-      <body className="min-h-screen antialiased">
-        <AsciiField />
-        <Crt />
-        <BootSequence />
-        {children}
-      </body>
+    <html lang="en" className={`${jet.variable} ${dm.variable}`}>
+      <body className="min-h-screen antialiased">{children}</body>
     </html>
   );
 }

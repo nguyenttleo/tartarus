@@ -1,6 +1,6 @@
 "use client";
 
-import { Prompt } from "@/components/terminal/Prompt";
+import type { ReactNode } from "react";
 import type { Outcome, RunResult } from "@/lib/types";
 
 const OUTCOME_LABEL: Record<Outcome, string> = {
@@ -12,55 +12,110 @@ const OUTCOME_LABEL: Record<Outcome, string> = {
   startup_error: "startup error",
 };
 
-function Badge({ tone, children }: { tone: "ok" | "warn" | "bad" | "muted"; children: React.ReactNode }) {
-  const cls =
-    tone === "ok"
-      ? "text-accent border-accent/40 bg-accent/5"
-      : tone === "warn"
-        ? "text-amber border-amber/40 bg-amber/5"
-        : tone === "bad"
-          ? "text-red border-red/40 bg-red/5"
-          : "text-muted border-border bg-surface-2/60";
-  return <span className={`chip ${cls}`}>{children}</span>;
+export type OutcomeTone = "ok" | "warn" | "bad";
+
+export function outcomeTone(result: RunResult): OutcomeTone {
+  if (result.outcome !== "completed") return "bad";
+  return result.exitCode === 0 ? "ok" : "warn";
 }
 
-export function OutputPanel({ result, error }: { result: RunResult | null; error: string | null }) {
+export const TONE_CLASS: Record<OutcomeTone, string> = {
+  ok: "text-ok",
+  warn: "text-amber",
+  bad: "text-red",
+};
+
+const TONE_BG: Record<OutcomeTone, string> = {
+  ok: "bg-ok",
+  warn: "bg-amber",
+  bad: "bg-red",
+};
+
+export function outcomeText(result: RunResult) {
+  if (result.outcome === "completed" && result.exitCode !== 0) return `exit ${result.exitCode ?? "-"}`;
+  return OUTCOME_LABEL[result.outcome];
+}
+
+type Phase = { label: string; ms: number; className: string };
+
+// Phase durations from the trace timestamps.
+function phases(result: RunResult): Phase[] | null {
+  const at = (kind: string) => result.trace.find((e) => e.kind === kind)?.tMs;
+  const first = result.trace[0]?.tMs;
+  const staged = at("fs.stage");
+  const loaded = at("module.load");
+  const guestStart = at("guest.start");
+  if (first === undefined || guestStart === undefined) return null;
+  const load = staged !== undefined && loaded !== undefined ? Math.max(0, loaded - staged) : 0;
+  return [
+    { label: "sandbox", ms: Math.max(0, guestStart - first - load), className: "bg-[#5c5b58]" },
+    { label: "interpreter", ms: load, className: "bg-faint" },
+    { label: "your code", ms: result.durationMs, className: TONE_BG[outcomeTone(result)] },
+  ];
+}
+
+const formatMs = (ms: number) => (ms < 1 ? "<1 ms" : `${Math.round(ms).toLocaleString()} ms`);
+
+function TimingStrip({ parts }: { parts: Phase[] }) {
+  const total = parts.reduce((sum, p) => sum + p.ms, 0);
+  return (
+    <div>
+      <div className="timing-bar" role="img" aria-label={parts.map((p) => `${p.label} ${formatMs(p.ms)}`).join(", ")}>
+        {parts.map((p, i) => (
+          <span
+            key={p.label}
+            className={p.className}
+            style={{ flexGrow: total > 0 ? p.ms : i === parts.length - 1 ? 1 : 0 }}
+          />
+        ))}
+      </div>
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] tabular-nums text-muted">
+        {parts.map((p) => (
+          <span key={p.label} className="inline-flex items-center gap-1.5">
+            <span className={`timing-swatch ${p.className}`} aria-hidden />
+            {p.label} {formatMs(p.ms)}
+          </span>
+        ))}
+        <span className="ml-auto">{formatMs(total)} total</span>
+      </div>
+    </div>
+  );
+}
+
+export function OutputPanel({
+  result,
+  error,
+  idle,
+}: {
+  result: RunResult | null;
+  error: string | null;
+  idle: ReactNode;
+}) {
   if (error) {
     return (
       <div className="p-4">
-        <pre className="screen whitespace-pre-wrap break-words p-3 font-mono text-sm text-red">
-          <span className="text-red/70">✗ error:</span> {error}
+        <pre className="whitespace-pre-wrap break-words font-mono text-[13px] leading-6 text-red">
+          <span className="text-red/70">error:</span> {error}
         </pre>
       </div>
     );
   }
-  if (!result) {
-    return (
-      <div className="h-full overflow-auto p-4 font-mono text-sm leading-relaxed text-muted">
-        <p>
-          <Prompt /> run code to capture <span className="text-foreground">stdout</span>,{" "}
-          <span className="text-foreground">stderr</span>, exit status &amp; resource usage
-          <span className="prompt animate-blink"> █</span>
-        </p>
-      </div>
-    );
-  }
-
-  const outcomeTone =
-    result.outcome === "completed" ? (result.exitCode === 0 ? "ok" : "warn") : "bad";
+  if (!result) return <>{idle}</>;
+  const timing = phases(result);
 
   return (
-    <div className="flex h-full flex-col gap-4 overflow-auto p-4 text-sm">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge tone={outcomeTone}>{OUTCOME_LABEL[result.outcome]}</Badge>
-        <Badge tone="muted">exit {result.exitCode ?? "-"}</Badge>
-        <Badge tone="muted">{result.durationMs} ms</Badge>
-        {result.fuelUsed != null && <Badge tone="muted">{result.fuelUsed.toLocaleString()} fuel</Badge>}
-        {result.timedOut && <Badge tone="bad">timed out</Badge>}
-        {result.oom && <Badge tone="bad">oom</Badge>}
-        {result.outputTruncated && <Badge tone="warn">truncated</Badge>}
-        <Badge tone="muted">backend: {result.backend}</Badge>
+    <div className="flex flex-col gap-4 p-4 text-sm">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] tabular-nums text-muted">
+        <span className={TONE_CLASS[outcomeTone(result)]}>{OUTCOME_LABEL[result.outcome]}</span>
+        <span>exit {result.exitCode ?? "-"}</span>
+        {!timing && <span>{result.durationMs} ms</span>}
+        {result.fuelUsed != null && <span>{result.fuelUsed.toLocaleString()} fuel</span>}
+        {result.timedOut && <span className="text-red">timed out</span>}
+        {result.oom && <span className="text-red">out of memory</span>}
+        {result.outputTruncated && <span className="text-amber">truncated</span>}
       </div>
+
+      {timing && <TimingStrip parts={timing} />}
 
       <Section title="stdout" body={result.stdout} empty="(no stdout)" />
       <Section title="stderr" body={result.stderr} empty="(no stderr)" tone="red" />
@@ -81,13 +136,10 @@ function Section({
 }) {
   return (
     <div>
-      <div className="mb-1.5 flex items-center gap-2 font-terminal text-[11px] uppercase tracking-[0.18em] text-muted">
-        <span className={tone === "red" ? "text-red/80" : "text-accent/80"}>▍</span>
-        {title}
-      </div>
+      <div className="ui-label mb-1.5">{title}</div>
       <pre
-        className={`screen max-h-64 overflow-auto whitespace-pre-wrap break-words p-3 font-mono text-[13px] leading-relaxed ${
-          body ? (tone === "red" ? "text-red/90" : "text-foreground") : "text-faint"
+        className={`console-output max-h-64 overflow-auto whitespace-pre-wrap break-words px-3 py-2 font-mono text-[13px] leading-6 ${
+          body ? (tone === "red" ? "text-red" : "text-foreground") : "console-empty"
         }`}
       >
         {body || empty}
