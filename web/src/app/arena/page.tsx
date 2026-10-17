@@ -1,80 +1,107 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { CodeEditor } from "@/components/CodeEditor";
+import { useCallback, useEffect, useEffectEvent, useState } from "react";
+import { EditorPanel, type EditorFile } from "@/components/EditorPanel";
+import { FrameStatus } from "@/components/FrameStatus";
+import { Leaderboard } from "@/components/Leaderboard";
 import { OutputPanel } from "@/components/OutputPanel";
+import { ResultPane, type ResultTab } from "@/components/ResultPane";
+import { RunBrief } from "@/components/RunBrief";
 import { SiteHeader } from "@/components/SiteHeader";
+import { SplitWorkbench } from "@/components/SplitWorkbench";
 import { TracePanel } from "@/components/TracePanel";
-import { AsciiSpinner } from "@/components/terminal/AsciiSpinner";
-import { GlitchText } from "@/components/terminal/GlitchText";
-import { Prompt } from "@/components/terminal/Prompt";
-import { Select } from "@/components/terminal/Select";
-import { MAGNIFIER } from "@/components/terminal/spinModels";
-import { Ticker } from "@/components/terminal/Ticker";
-import { apiConfigured, getHealth, getLeaderboard, runAndWait } from "@/lib/api";
+import { AsciiSpinner, type CageStatus } from "@/components/terminal/AsciiSpinner";
+import { JAIL_CELL } from "@/components/terminal/spinModels";
+import { apiConfigured, backendState, getLeaderboard, runAndWait } from "@/lib/api";
 import { ARENA_STARTERS } from "@/lib/snippets";
-import type { Health, Language, LeaderboardSummary, RunResult } from "@/lib/types";
+import type { Language, LeaderboardSummary, Limits, RunResult } from "@/lib/types";
+import { useHealth } from "@/lib/useHealth";
+import { useModKey } from "@/lib/useModKey";
 
-const ARENA_FACTS = [
-  "canary lives on the host",
-  "never handed to the guest",
-  "no sockets",
-  "no host fs",
-  "if it leaks into output → BREACH",
-  "every attempt is logged",
-  "leaderboard by technique",
-  "wasmtime/wasi containment",
-];
+const LANGS: Language[] = ["python", "javascript"];
+const FILE_NAMES: Record<Language, string> = { python: "exploit.py", javascript: "exploit.js" };
+const FALLBACK_LABELS: Record<Language, string> = {
+  python: "Python 3 (CPython · WASI)",
+  javascript: "JavaScript (QuickJS · WASI)",
+};
+const ARENA_LIMITS: Limits = {
+  wallMs: 5000,
+  fuel: 10_000_000_000,
+  memoryBytes: 128 * 1024 * 1024,
+  outputBytes: 256 * 1024,
+};
 
 export default function ArenaPage() {
   const configured = apiConfigured();
-  const [health, setHealth] = useState<Health | null | undefined>(undefined);
+  const mod = useModKey();
+  const { health, samples, refresh } = useHealth();
   const [board, setBoard] = useState<LeaderboardSummary | null>(null);
-  const [lang, setLang] = useState<Language>("python");
+  const [boardAt, setBoardAt] = useState(0);
+  const [picked, setLang] = useState<Language>("python");
   const [sources, setSources] = useState<Record<Language, string>>(ARENA_STARTERS);
   const [technique, setTechnique] = useState("read host filesystem");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<RunResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<"output" | "trace">("output");
+  const [tab, setTab] = useState<ResultTab>("output");
 
   const refreshBoard = useCallback(() => {
-    getLeaderboard().then(setBoard);
+    getLeaderboard().then((b) => {
+      setBoard(b);
+      setBoardAt(Date.now());
+    });
   }, []);
 
   useEffect(() => {
-    let alive = true;
-    getHealth().then((h) => {
-      if (!alive) return;
-      setHealth(h);
-      if (h) {
-        const first = h.languages.find((l) => l.available);
-        if (first) setLang((p) => (h.languages.some((l) => l.id === p && l.available) ? p : first.id));
-      }
-    });
     refreshBoard();
-    return () => {
-      alive = false;
-    };
   }, [refreshBoard]);
 
+  // Use the first available runtime if the picked one is missing.
+  const firstAvailable = health?.languages.find((l) => l.available)?.id;
+  const lang =
+    health && firstAvailable && !health.languages.some((l) => l.id === picked && l.available)
+      ? firstAvailable
+      : picked;
+
+  const backend = backendState(configured, health);
   const langAvailable = health?.languages.find((l) => l.id === lang)?.available ?? false;
   const canRun = configured && !!health && langAvailable && !running;
+  const blocked =
+    backend === "unconfigured"
+      ? "Backend not connected"
+      : backend === "offline"
+        ? "Backend offline"
+        : backend === "checking"
+          ? "Checking backend"
+          : !langAvailable
+            ? "Runtime unavailable"
+            : undefined;
 
-  const attempt = useCallback(async () => {
+  const files: EditorFile[] = LANGS.map((id) => ({
+    lang: id,
+    name: FILE_NAMES[id],
+    disabled: !!health && !health.languages.some((l) => l.id === id && l.available),
+  }));
+  const runtimeLabel = health?.languages.find((l) => l.id === lang)?.label ?? FALLBACK_LABELS[lang];
+  const breached = result?.escape?.succeeded === true;
+  const cage: CageStatus = running
+    ? "running"
+    : breached
+      ? "breach"
+      : result?.escape
+        ? "ok"
+        : error
+          ? "bad"
+          : "idle";
+
+  const attempt = async () => {
     if (!apiConfigured()) return;
     setRunning(true);
     setError(null);
     setResult(null);
     setTab("output");
     try {
-      const res = await runAndWait({
-        lang,
-        source: sources[lang],
-        mode: "arena",
-        technique,
-        limits: { wallMs: 5000, fuel: 10_000_000_000, memoryBytes: 128 * 1024 * 1024, outputBytes: 256 * 1024 },
-      });
+      const res = await runAndWait({ lang, source: sources[lang], mode: "arena", technique, limits: ARENA_LIMITS });
       setResult(res);
       refreshBoard();
     } catch (e) {
@@ -82,188 +109,163 @@ export default function ArenaPage() {
     } finally {
       setRunning(false);
     }
-  }, [lang, sources, technique, refreshBoard]);
+  };
 
-  const breached = result?.escape?.succeeded === true;
+  const onAttemptShortcut = useEffectEvent(() => {
+    if (canRun) void attempt();
+  });
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        onAttemptShortcut();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
-    <div className="min-h-screen dotgrid">
-      <SiteHeader active="arena" health={health} configured={configured} />
+    <div className="min-h-screen">
+      <SiteHeader active="arena" health={health} configured={configured} samples={samples} onRefresh={refresh} />
 
-      <main className="mx-auto max-w-[1400px] px-4 py-4">
-        <div className="panel mb-4 overflow-hidden">
-          <div className="titlebar flex items-center gap-3 px-3 py-2 text-xs text-muted">
-            <span className="win-dots" aria-hidden>
-              <i />
-              <i />
-              <i />
-            </span>
-            <span className="font-mono">hacker@tartarus: ~/arena - breakout</span>
+      <main>
+        <section className="mx-auto flex max-w-[1200px] flex-wrap items-end justify-between gap-x-10 gap-y-8 px-4 pb-8 pt-8 sm:pt-10">
+          <div className="max-w-2xl">
+            <h1 className="editorial-title text-[4.5rem] text-foreground sm:text-[6.5rem]">Escape arena</h1>
+            <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted">
+              Print the host&apos;s secret flag to escape.
+            </p>
           </div>
-          <div className="flex flex-wrap items-end justify-between gap-6 p-6">
-            <div className="min-w-0">
-              <div className="font-mono text-sm">
-                <Prompt cwd="~/arena" /> <span className="text-muted">cat /host/canary &amp;&amp; exfil</span>
-              </div>
-              <GlitchText as="h1" className="mt-2 text-4xl leading-none tracking-tight sm:text-5xl">
-                ESCAPE_ARENA
-              </GlitchText>
-              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">
-                A secret flag lives on the host, outside the sandbox. Write code that exfiltrates it. Every
-                attempt is logged. The guest gets no network and no host filesystem -{" "}
-                <span className="text-accent">so far, nothing has gotten out.</span>
-              </p>
+          <div className="flex items-end gap-8">
+            <div className="hidden sm:block">
+              <AsciiSpinner model={JAIL_CELL} cols={26} rows={12} scale={10} tilt={-0.32} ortho status={cage} />
             </div>
-            <div className="relative hidden w-[14rem] shrink-0 self-stretch xl:block" aria-hidden>
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden">
-                <AsciiSpinner model={MAGNIFIER} cols={32} rows={16} scale={16} yoff={-0.05} />
-              </div>
-            </div>
-            <div className="shrink-0 border border-border bg-black/30 px-5 py-3 text-right">
-              <div className="font-display text-5xl leading-none">
-                <span className={board && board.totalEscapes > 0 ? "text-red glow-strong" : "text-accent glow"}>
-                  {board ? board.totalEscapes : "-"}
-                </span>
-                <span className="text-faint"> / {board ? board.totalAttempts : "-"}</span>
-              </div>
-              <div className="mt-2 font-terminal text-[11px] uppercase tracking-[0.18em] text-muted">
-                escapes / attempts
-              </div>
-            </div>
+            <EscapeCount board={board} />
           </div>
-          <div className="border-t border-border py-2">
-            <Ticker items={ARENA_FACTS} />
-          </div>
-        </div>
+        </section>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <section className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Select
-                ariaLabel="Language"
-                value={lang}
-                onChange={(v) => setLang(v as Language)}
-                options={
-                  (health?.languages ?? []).length === 0
-                    ? [{ value: lang, label: lang }]
-                    : (health?.languages ?? []).map((l) => ({
-                        value: l.id,
-                        label: l.available ? l.label : `${l.label} (unavailable)`,
-                        disabled: !l.available,
-                      }))
-                }
-              />
-
+        <div className="mx-auto max-w-[1200px] px-4 pb-6">
+          <div className="flex flex-wrap items-center gap-2 pb-3">
+            <label className="field flex min-w-0 max-w-xl flex-1 basis-56 items-center gap-2 px-3 py-2 text-sm">
+              <span className="ui-label shrink-0">technique</span>
               <input
                 value={technique}
                 onChange={(e) => setTechnique(e.target.value)}
-                placeholder="technique label"
-                className="field min-w-0 flex-1 px-3 py-2 text-sm placeholder:text-muted"
-                aria-label="Technique"
+                placeholder="name your approach"
+                className="min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-faint"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => void attempt()}
+              disabled={!canRun}
+              title={blocked}
+              className="btn-danger w-full shrink-0 sm:ml-auto sm:w-auto"
+            >
+              {running ? (
+                "Attempting…"
+              ) : (
+                <>
+                  Attempt escape <span className="kbd hidden sm:inline-flex">{mod} ↵</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          <div className="frame">
+            <SplitWorkbench className="lg:h-[clamp(22rem,54vh,38rem)]">
+              <EditorPanel
+                files={files}
+                lang={lang}
+                onLangChange={setLang}
+                value={sources[lang]}
+                onChange={(next) => setSources((s) => ({ ...s, [lang]: next }))}
+                meta={runtimeLabel}
+                className="h-[50vh] lg:h-auto"
               />
 
-              <button onClick={() => void attempt()} disabled={!canRun} className="btn-danger">
-                {running ? "attempting…" : "Attempt escape ▸"}
-              </button>
-            </div>
-
-            <div className="panel flex h-[48vh] flex-col overflow-hidden">
-              <div className="titlebar flex items-center gap-3 px-3 py-2 text-xs text-muted">
-                <span className="win-dots" aria-hidden>
-                  <i />
-                  <i />
-                  <i />
-                </span>
-                <span className="font-mono">
-                  <span className="prompt">~/arena</span> $ {lang === "python" ? "exploit.py" : "exploit.js"}
-                </span>
-              </div>
-              <div className="screen min-h-0 flex-1 overflow-hidden rounded-none border-0">
-                <CodeEditor
-                  language={lang}
-                  value={sources[lang]}
-                  onChange={(next) => setSources((s) => ({ ...s, [lang]: next }))}
-                />
-              </div>
-            </div>
-
-            {result?.escape && (
-              <div
-                className={`flex flex-wrap items-center gap-x-2 border px-4 py-2.5 font-mono text-sm ${
-                  breached ? "border-red/50 bg-red/10 text-red" : "border-accent/40 bg-accent/5 text-accent"
-                }`}
-              >
-                <span className="font-bold">
-                  {breached ? "⚠ BREACH - canary leaked!" : "✓ CONTAINED"}
-                </span>
-                <span className="text-muted">
-                  · technique: {result.escape.technique} - {result.escape.notes}
-                </span>
-              </div>
-            )}
-          </section>
-
-          <section className="panel flex h-[calc(48vh+3rem)] flex-col overflow-hidden">
-            <div className="titlebar flex items-center gap-1 px-2 py-1.5 text-xs">
-              <TabBtn label="output" active={tab === "output"} onClick={() => setTab("output")} />
-              <TabBtn label="trace" active={tab === "trace"} onClick={() => setTab("trace")} />
-            </div>
-            <div className="min-h-0 flex-1">
-              {tab === "output" ? <OutputPanel result={result} error={error} /> : <TracePanel result={result} />}
-            </div>
-          </section>
-        </div>
-
-        <section className="panel mt-4 overflow-hidden">
-          <div className="titlebar flex items-center gap-2 px-3 py-2 font-terminal text-xs uppercase tracking-wider text-muted">
-            <span className="text-accent/70" aria-hidden>
-              ▚
-            </span>
-            ~/arena/leaderboard · attempts by technique
-          </div>
-          {board && board.techniques.length > 0 ? (
-            <table className="w-full text-sm">
-              <thead className="bg-surface-2/50 text-left font-terminal text-[11px] uppercase tracking-[0.16em] text-muted">
-                <tr>
-                  <th className="px-4 py-2.5 font-medium">technique</th>
-                  <th className="px-4 py-2.5 text-right font-medium">attempts</th>
-                  <th className="px-4 py-2.5 text-right font-medium">escapes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {board.techniques.map((t) => (
-                  <tr key={t.technique} className="border-t border-border/40 transition-colors hover:bg-surface-2/40">
-                    <td className="px-4 py-2.5 font-mono text-foreground">{t.technique}</td>
-                    <td className="px-4 py-2.5 text-right font-mono text-muted">{t.attempts}</td>
-                    <td
-                      className={`px-4 py-2.5 text-right font-mono font-semibold ${
-                        t.escapes > 0 ? "text-red" : "text-accent/80"
+              <ResultPane
+                tab={tab}
+                onTabChange={setTab}
+                meta={result ? `attempt ${result.id}` : running ? "running" : "idle"}
+                className="h-[55vh] lg:h-auto"
+                banner={
+                  result?.escape && (
+                    <div
+                      className={`flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border px-4 py-2.5 text-[13px] ${
+                        breached ? "bg-red/10" : ""
                       }`}
                     >
-                      {t.escapes}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="p-6 text-center text-sm text-muted">No attempts recorded yet - be the first.</div>
-          )}
-        </section>
+                      <span className={`ui-label ${breached ? "text-red" : "text-verdigris"}`}>
+                        {breached ? "breach" : "contained"}
+                      </span>
+                      <span className="text-muted">{result.escape.notes}</span>
+                    </div>
+                  )
+                }
+              >
+                {tab === "output" ? (
+                    <OutputPanel
+                      result={result}
+                      error={error}
+                      idle={
+                        <RunBrief
+                          title={running ? "attempting" : "the target"}
+                          running={running}
+                          backend={backend}
+                          rows={[
+                            ["flag", "a fresh TARTARUS_FLAG{…} per attempt, held by the host"],
+                            ["escape", "the flag shows up in stdout or stderr"],
+                            ["you get", "/sandbox read-only, /tmp writable, stdout, stderr"],
+                            ["you don't", "network, environment variables, host paths"],
+                          ]}
+                          note={
+                            <>
+                              <span className="kbd kbd-muted">{mod} ↵</span> attempts it. It&apos;s logged as{" "}
+                              <span className="text-foreground">{technique.trim() || "unspecified"}</span>.
+                            </>
+                          }
+                        />
+                      }
+                    />
+                  ) : (
+                    <TracePanel result={result} wallMs={ARENA_LIMITS.wallMs} />
+                  )}
+              </ResultPane>
+            </SplitWorkbench>
+            <FrameStatus limits={["5,000 ms", "128 MB", "256 KB out"]} />
+          </div>
+        </div>
+
+        <div className="mx-auto max-w-[1200px] px-4 pb-14 pt-8">
+          <Leaderboard board={board} now={boardAt} />
+        </div>
       </main>
     </div>
   );
 }
 
-function TabBtn({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function EscapeCount({ board }: { board: LeaderboardSummary | null }) {
+  const escapes = board?.totalEscapes ?? 0;
   return (
-    <button
-      onClick={onClick}
-      className={`px-3 py-1 font-terminal transition-colors ${
-        active ? "prompt glow" : "text-muted hover:text-accent"
-      }`}
-    >
-      {active ? `[${label}]` : label}
-    </button>
+    <div className="sm:text-right">
+      <div
+        className={`font-display text-[7rem] leading-[0.78] ${
+          !board ? "text-faint" : escapes > 0 ? "text-red" : "text-verdigris"
+        }`}
+      >
+        {board ? escapes : "-"}
+      </div>
+      <div className="ui-label mt-3">
+        {board
+          ? `${escapes === 1 ? "escape" : "escapes"} · ${board.totalAttempts.toLocaleString()} attempts`
+          : "escapes · not loaded"}
+      </div>
+      {board && board.totalAttempts > 0 && escapes === 0 && (
+        <div className="mt-1 text-xs text-muted">Nothing has gotten out yet.</div>
+      )}
+    </div>
   );
 }

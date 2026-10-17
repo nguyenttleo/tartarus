@@ -6,6 +6,14 @@ export function apiConfigured(): boolean {
   return API_BASE.length > 0;
 }
 
+export type BackendState = "checking" | "unconfigured" | "offline" | "ready";
+
+export function backendState(configured: boolean, health: Health | null | undefined): BackendState {
+  if (!configured) return "unconfigured";
+  if (health === undefined) return "checking";
+  return health ? "ready" : "offline";
+}
+
 export async function getHealth(): Promise<Health | null> {
   if (!apiConfigured()) return null;
   try {

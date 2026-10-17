@@ -193,15 +193,15 @@ export function Select({
           else openMenu();
         }}
         onKeyDown={onKeyDown}
-        className="field flex w-full items-center gap-2 px-3 py-2 text-sm"
+        className="field flex w-full min-w-0 items-center gap-2 px-3 py-2 text-sm"
       >
         {label && (
-          <span className="font-terminal text-xs uppercase tracking-wider text-muted">{label}</span>
+          <span className="shrink-0 font-terminal text-xs uppercase tracking-wider text-muted">{label}</span>
         )}
-        <span className="truncate text-foreground">{selected?.label ?? value}</span>
+        <span className="min-w-0 flex-1 truncate text-left text-foreground">{selected?.label ?? value}</span>
         <span
           aria-hidden
-          className={`ml-auto text-accent transition-transform duration-150 ${open ? "rotate-180" : ""}`}
+          className={`ml-auto shrink-0 text-accent transition-transform duration-150 ${open ? "rotate-180" : ""}`}
         >
           ▾
         </span>
@@ -218,7 +218,7 @@ export function Select({
           aria-label={ariaLabel}
           tabIndex={-1}
           style={menuStyle}
-          className="pop-in fixed z-[120] overflow-x-hidden overflow-y-auto rounded-md border border-accent/45 bg-[#070b0e] py-1 font-mono text-sm shadow-[0_0_0_1px_rgba(0,0,0,0.7),0_18px_44px_-16px_rgba(70,247,164,0.4)]"
+          className="pop-in fixed z-[120] overflow-x-hidden overflow-y-auto border border-border-strong bg-surface-2 py-1 font-mono text-sm shadow-[0_12px_28px_rgba(0,0,0,0.28)]"
         >
           {options.map((opt, idx) => {
             const isSelected = opt.value === value;
